@@ -155,7 +155,16 @@ cd ames-housing-ml
 pip install -r requirements.txt
 ```
 
-Para ejecutar el pipeline SAVI, ubica el archivo `ames_combined_2006_2024.csv` en la raiz del repositorio y corre:
+Para ejecutar el pipeline SAVI, el script busca `ames_combined_2006_2024.csv` en este orden:
+
+```text
+AMES_DATASET_PATH
+./ames_combined_2006_2024.csv
+./data/ames_combined_2006_2024.csv
+C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv
+```
+
+Luego corre:
 
 ```bash
 python MDP_Ames_SAVI.py

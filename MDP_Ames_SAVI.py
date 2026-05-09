@@ -51,6 +51,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import warnings
+import os
 from pathlib import Path
 warnings.filterwarnings("ignore")
 
@@ -66,8 +67,14 @@ THETA   = 0.0001    # Umbral de convergencia para Value Iteration
 ACTIONS = ["APROBAR", "REVISAR", "RECHAZAR"]
 N_CLUSTERS = 6
 
-# Ruta del dataset. Cambia este nombre si tu archivo tiene otro nombre o ubicación.
-DATASET_PATH = Path("ames_combined_2006_2024.csv")
+# Ruta del dataset. Prioriza AMES_DATASET_PATH si se define en el entorno.
+DATASET_CANDIDATES = [
+    Path(os.environ["AMES_DATASET_PATH"]) if os.environ.get("AMES_DATASET_PATH") else None,
+    Path("ames_combined_2006_2024.csv"),
+    Path("data") / "ames_combined_2006_2024.csv",
+    Path(r"C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv"),
+]
+DATASET_PATH = next((p for p in DATASET_CANDIDATES if p and p.exists()), DATASET_CANDIDATES[1])
 
 
 print("=" * 60)
@@ -84,12 +91,15 @@ print("=" * 60)
 print("\n[PASO 1] Cargando y limpiando dataset...")
 
 if not DATASET_PATH.exists():
+    expected_paths = "\n".join(f"  - {p}" for p in DATASET_CANDIDATES if p)
     raise FileNotFoundError(
-        f"No se encontró {DATASET_PATH}. Sube el archivo CSV al mismo directorio del cuaderno "
-        "o ajusta la variable DATASET_PATH en la celda de configuración."
+        "No se encontró el archivo CSV de Ames Housing. Ubícalo en una de estas rutas "
+        "o define la variable de entorno AMES_DATASET_PATH:\n"
+        f"{expected_paths}"
     )
 
 df = pd.read_csv(DATASET_PATH)
+print(f"  Dataset fuente: {DATASET_PATH}")
 print(f"  Dataset cargado: {df.shape[0]:,} filas x {df.shape[1]} columnas")
 
 # Filtrar outlier extremo (precio > percentil 99.9)

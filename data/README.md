@@ -23,10 +23,13 @@ Both sources were merged into a single file: `ames_combined_2006_2024.csv`
 
 ## SAVI / MDP pipeline
 The reinforcement learning pipeline in `MDP_Ames_SAVI.py` expects the CSV version of the combined
-dataset at the repository root:
+dataset. It checks these locations in order:
 
 ```text
-ames_combined_2006_2024.csv
+AMES_DATASET_PATH
+./ames_combined_2006_2024.csv
+./data/ames_combined_2006_2024.csv
+C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv
 ```
 
 This file is intentionally not committed because datasets are ignored by `.gitignore`.
