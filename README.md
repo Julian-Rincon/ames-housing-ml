@@ -1,99 +1,153 @@
-# Ames Housing ML — Price Prediction & Segmentation (2006–2024)
+# SAVI: Sistema Autonomo de Valuacion Inmobiliaria
 
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)
-![LightGBM](https://img.shields.io/badge/LightGBM-FF6600?style=for-the-badge&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+**End-to-end Machine Learning pipeline for Ames Housing: segmentation, price prediction and risk-aware decision making with Reinforcement Learning.**
 
-Real estate price prediction and unsupervised segmentation on an extended Ames Housing dataset covering 2006–2024. Combines the original Kaggle dataset with the City of Ames Assessor's 2024 report, resulting in 20,203 properties and 81 features.
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-orange.svg)](https://scikit-learn.org/)
+[![XGBoost](https://img.shields.io/badge/Model-XGBoost-red.svg)](https://xgboost.readthedocs.io/)
+[![Reinforcement Learning](https://img.shields.io/badge/AI-Markov_Decision_Process-purple.svg)]()
+[![GitHub Pages](https://img.shields.io/badge/Demo-GitHub_Pages-success.svg)](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
 
----
-
-## Dataset
-
-| Property | Value |
-|----------|-------|
-| Rows | 20,203 |
-| Columns | 81 |
-| Years covered | 2006 – 2024 |
-| Target variable | SalePrice |
-| Sources | Kaggle (2006–2010) + City of Ames Assessor 2024 |
-
-> **Note:** 43 synthetic records with SalePrice ≈ $42.4M were detected and filtered during preprocessing.
-
-The dataset is not committed to this repo. Download instructions in `data/README.md`.
+> **Demo interactiva:** [ver el agente SAVI y la politica optima del MDP](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
 
 ---
 
-## Key Results
+## Resumen Ejecutivo
 
-### Supervised — Price Prediction
+La valuacion inmobiliaria tradicional depende de revision humana: es lenta, costosa y puede variar entre tasadores. Un modelo de regresion ayuda a estimar precios, pero no resuelve por si solo la pregunta de negocio mas importante: **cuando conviene confiar en la prediccion y cuando conviene escalar el caso a revision humana**.
 
-> Note: Models were trained on 6 features (YrSold, Utilities, LandContour, LotArea, Alley, OverallCond)
-> using the original Kaggle dataset (1,460 rows). Train/Test split: 80/20 (1,168 train / 292 test).
+SAVI aborda ese problema como un sistema de decision. El pipeline segmenta el mercado con clustering, estima precios con un modelo supervisado y usa un **Proceso de Decision de Markov (MDP)** para elegir entre tres acciones:
 
-| Model | Task | R² | MAE | RMSE |
-|-------|------|----|-----|------|
-| LightGBM (final model) | Regression | 0.75 | ~$23,600 | — |
-| Random Forest (n=70, depth=10) | Regression | 0.3349 | $47,546 | $71,423 |
-| Decision Tree (depth=5) | Regression | 0.3276 | $48,084 | $71,815 |
-| KNN (k=15, Manhattan) | Regression | 0.2509 | $51,562 | $75,802 |
-| Linear Regression | Regression | 0.0767 | $60,076 | $84,155 |
-| SVM (RBF kernel, C=1) | Classification* | Acc: 95% | F1: 0.9398 | AUC-ROC: 0.9830 |
-
-> *SVM was applied as a binary classifier (price above/below median). Best configuration: kernel=RBF, C=1.
-> Random Forest best configuration: n_estimators=70, max_depth=10, min_samples_leaf=2.
-
-### Unsupervised — Clustering
-
-Applied to 12 numerical features on 20,043 clean records (160 outliers with SalePrice ≈ $42.4M filtered out).
-Features: OverallQual, OverallCond, GrLivArea, TotalBsmtSF, GarageArea, YearBuilt, LotArea, SalePrice,
-TotRmsAbvGrd, Fireplaces, 1stFlrSF, GarageCars.
-
-| Algorithm | Optimal k | Best Silhouette | Method used |
-|-----------|-----------|-----------------|-------------|
-| K-Means | 4 | 0.3393 (at k=3) | Elbow + Silhouette + Dunn Index |
-| Hierarchical — Ward | 3 | 0.3442 | Silhouette Score across k=2–10 |
-| Hierarchical — Complete | 2 | 0.9413 | Silhouette Score across k=2–10 |
-| Hierarchical — Average | 2 | 0.9413 | Silhouette Score across k=2–10 |
-| DBSCAN | 3 clusters + noise | — | k-NN distance (elbow), eps=1.872, min_samples=10 |
-
-**DBSCAN results:** 3 clusters formed, 111 noise points (0.5%). Cluster 0: 20,029 standard properties
-(mean price $255K). Cluster 1: 42 synthetic records (SalePrice = $42.4M). Cluster 2: 21 large outlier
-properties (mean area 12,557 sqft, mean price $1.44M). Noise points: 111 high-value irregular properties
-(mean price $1.07M, mean area 4,555 sqft).
-
-**K-Means cluster interpretation (k=4):**
-- Cluster 4 — "Vivienda Económica": 6,460 properties (32.2%), mean price $126,209
-- Cluster 1 — "Vivienda Estándar": 1,202 properties (6.0%), mean price $195,306
-- Cluster 2 — "Vivienda de Alta Gama": 4,234 properties (21.1%), mean price $197,013
-- Cluster 3 — "Vivienda Premium": remaining properties, mean price $368,043
-
-**Hierarchical Ward cluster interpretation (k=3):**
-- Cluster 1: 5,031 properties (25.1%), mean price $193,440, mean area 1,208 sqft, built ~1964
-- Cluster 2: 6,768 properties (33.8%), mean price $134,513, mean area 1,028 sqft, built ~1999, no garage
-- Cluster 3: 8,244 properties (41.1%), mean price $363,790, mean area 1,838 sqft, built ~1979
-
-**PCA variance explained:** PC1=41.6%, PC2=13.5% (total 55.0%)
+| Accion | Uso operativo |
+|---|---|
+| `APROBAR` | Automatizar la valuacion cuando el riesgo esperado es bajo. |
+| `REVISAR` | Enviar a tasador humano cuando el costo esperado del error supera el costo de auditoria. |
+| `RECHAZAR` | Solicitar mas informacion cuando el segmento tiene incertidumbre extrema o datos insuficientes. |
 
 ---
 
-## Notebooks
+## Evolucion del Proyecto
 
-| # | Notebook | Description |
-|---|----------|-------------|
-| 01 | kmeans_clustering | K-Means segmentation with Elbow and Silhouette analysis |
-| 02 | hierarchical_clustering | Hierarchical clustering with multiple linkage methods |
-| 03 | dbscan_clustering | DBSCAN with parameter tuning and noise analysis |
-| 04 | clustering_comparison | Full side-by-side comparison of all 3 clustering methods |
-| 05 | decision_tree_knn | Decision Tree and KNN classifiers with cross-validation |
-| 06 | random_forest_svm | Random Forest and SVM with hyperparameter tuning |
-| 07 | boosting_final_model | LightGBM final model — best results (R²=0.75, MAE≈$23K) |
-| 08 | parcial1_complete_analysis | Complete end-to-end analysis |
+Este repositorio conserva el trabajo original de analisis exploratorio, clustering y modelos supervisados. La actualizacion SAVI no reemplaza esa base: la extiende hacia una capa de decision autonoma.
+
+| Etapa | Objetivo | Artefactos |
+|---|---|---|
+| Corte 1 / base ML | Segmentacion no supervisada y modelos predictivos sobre Ames Housing. | `notebooks/01` a `notebooks/08` |
+| Corte 3 / SAVI | Agente MDP que decide aprobar, revisar o rechazar valuaciones segun riesgo. | `MDP_Ames_SAVI.py`, `MDP_Ames_Presentacion.html`, `Documentacion_SAVI.pdf` |
 
 ---
 
-## How to Run
+## Arquitectura Tecnica
+
+### 1. Segmentacion del mercado
+
+Se utiliza **K-Means** para convertir propiedades en estados del entorno. Cada estado representa un segmento del mercado con comportamiento economico similar.
+
+En la version SAVI:
+
+- `k = 6` estados.
+- Variables numericas escaladas con `StandardScaler`.
+- Validacion con `silhouette_score`.
+
+### 2. Prediccion supervisada
+
+El pipeline entrena un modelo **XGBoost Regressor** para estimar `SalePrice`. El cluster calculado por K-Means se incorpora como feature contextual, conectando la segmentacion con la prediccion.
+
+Resultado reportado por el script SAVI:
+
+| Modelo | R2 | MAE |
+|---|---:|---:|
+| XGBoost + cluster feature | 0.9606 | $26,254 |
+
+### 3. Decision con Reinforcement Learning
+
+El problema se formula como un **MDP**:
+
+- **Estados:** clusters de propiedades.
+- **Acciones:** `APROBAR`, `REVISAR`, `RECHAZAR`.
+- **Recompensas:** costo economico esperado segun error relativo de prediccion y accion tomada.
+- **Transiciones:** probabilidades historicas entre estados.
+- **Algoritmo:** Value Iteration.
+
+Parametros principales:
+
+| Parametro | Valor |
+|---|---:|
+| `gamma` | 0.95 |
+| `theta` | 0.0001 |
+| Convergencia | 259 iteraciones |
+
+---
+
+## Resultados SAVI
+
+El agente aprende una politica operativa que combina automatizacion y control de riesgo:
+
+| Resultado | Interpretacion |
+|---|---|
+| 93.1% `APROBAR` | Automatizacion directa en segmentos donde el modelo es suficientemente estable. |
+| 6.9% `REVISAR` | Revision humana selectiva en segmentos con mayor incertidumbre. |
+| Casos `RECHAZAR` | Proteccion frente a segmentos atipicos o con informacion insuficiente. |
+
+La decision no se basa solo en el precio estimado, sino en el costo esperado de equivocarse. Ese punto es clave para aplicaciones PropTech, credito hipotecario, underwriting inmobiliario y automatizacion de tasaciones.
+
+---
+
+## Resultados Previos del Repositorio
+
+La base original del proyecto incluye analisis no supervisado y supervisado sobre Ames Housing extendido 2006-2024.
+
+### Dataset
+
+| Propiedad | Valor |
+|---|---:|
+| Filas | 20,203 |
+| Columnas | 81 |
+| Periodo | 2006-2024 |
+| Variable objetivo | `SalePrice` |
+| Fuentes | Kaggle + City of Ames Assessor 2024 |
+
+> Nota: el dataset no se versiona por tamano. Las instrucciones estan en `data/README.md`.
+
+### Modelos supervisados previos
+
+| Modelo | Tarea | R2 / metrica principal | MAE |
+|---|---|---:|---:|
+| LightGBM | Regresion | 0.75 | ~$23,600 |
+| Random Forest | Regresion | 0.3349 | $47,546 |
+| Decision Tree | Regresion | 0.3276 | $48,084 |
+| KNN | Regresion | 0.2509 | $51,562 |
+| Linear Regression | Regresion | 0.0767 | $60,076 |
+| SVM | Clasificacion binaria | Accuracy 95% | F1 0.9398 |
+
+### Clustering previo
+
+| Algoritmo | Configuracion / resultado |
+|---|---|
+| K-Means | Segmentacion con Elbow, Silhouette y Dunn Index. |
+| Hierarchical Clustering | Comparacion Ward, Complete y Average. |
+| DBSCAN | Deteccion de clusters, ruido y outliers de alto valor. |
+| PCA | PC1=41.6%, PC2=13.5%, total=55.0%. |
+
+---
+
+## Estructura del Repositorio
+
+```text
+.
+├── MDP_Ames_SAVI.py              # Pipeline SAVI: K-Means + XGBoost + MDP + Value Iteration
+├── MDP_Ames_Presentacion.html    # Demo visual interactiva para GitHub Pages
+├── Documentacion_SAVI.pdf        # Documento tecnico del agente SAVI
+├── Taller1_Corte3_Final.docx     # Fuente editable de la documentacion
+├── notebooks/                    # Trabajo original de clustering y modelos supervisados
+├── data/                         # Instrucciones para ubicar el dataset local
+├── requirements.txt              # Dependencias Python
+└── README.md
+```
+
+---
+
+## Como Ejecutar
 
 ```bash
 git clone git@github.com:Julian-Rincon/ames-housing-ml.git
@@ -101,17 +155,25 @@ cd ames-housing-ml
 pip install -r requirements.txt
 ```
 
-Place `ames_combined_2006_2024.csv` inside the `data/` folder, then open any notebook in Jupyter.
+Para ejecutar el pipeline SAVI, ubica el archivo `ames_combined_2006_2024.csv` en la raiz del repositorio y corre:
 
-Recommended order: 01 → 02 → 03 → 04 → 05 → 06 → 07
+```bash
+python MDP_Ames_SAVI.py
+```
+
+Para reproducir el trabajo previo, ubica `ames_combined_2006_2024.csv` en `data/` y abre los notebooks en orden:
+
+```text
+01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08
+```
 
 ---
 
-## Authors
+## Autores
 
-- **Julian Rincón** — [github.com/Julian-Rincon](https://github.com/Julian-Rincon)
+- **Julian Rincon** - [github.com/Julian-Rincon](https://github.com/Julian-Rincon)
 - Valeria Larea
-- Nicolás Garzón
-- Juan Niño
+- Nicolas Garzon
+- Juan Nino
 
-*Universidad Sergio Arboleda — Machine Learning Course, 2024*
+*Universidad Sergio Arboleda - Machine Learning*
