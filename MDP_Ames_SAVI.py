@@ -25,7 +25,7 @@ Original file is located at
 ╚══════════════════════════════════════════════════════════════════════╝
 
 Dataset  : Ames Housing 2006-2024 (20,203 registros)
-Modelo   : K-Means (k=6) + XGBoost → R²=0.9606, MAE=$26,254
+Modelo   : K-Means (k=6) + XGBoost → R²=0.9609, MAE=$26,752
 MDP      : States=6 clusters · Actions={APROBAR,REVISAR,RECHAZAR}
            γ=0.95 · θ=0.0001 · Convergió en 259 iteraciones
 ```
@@ -52,8 +52,15 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import warnings
 import os
+import sys
 from pathlib import Path
 warnings.filterwarnings("ignore")
+
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", "1")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except AttributeError:
+    pass
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -470,7 +477,7 @@ print("""
   REGLA 2 — El mercado mayoritario siempre APRUEBA
   ──────────────────────────────────────────────────
   S1+S4+S5 = 93.1% del dataset siempre APRUEBAN.
-  R(APROBAR) = -$6 a -$82  <<  R(REVISAR) = -$120 a -$150
+  R(APROBAR) = -$7 a -$76  <<  R(REVISAR) = -$119 a -$127
   El XGBoost es muy preciso en estos clusters porque la
   mayor parte del entrenamiento les corresponde.
   Automatización máxima donde el modelo es confiable.
@@ -478,8 +485,8 @@ print("""
   REGLA 3 — La incertidumbre activa la revisión
   ───────────────────────────────────────────────
   S0 y S2 siempre REVISAN.
-  S0: R(APROBAR)=-219.6  vs  R(REVISAR)=-108.0
-  S2: R(APROBAR)=-129.6  vs  R(REVISAR)=-114.8
+  S0: R(APROBAR)=-169.9  vs  R(REVISAR)=-113.6
+  S2: R(APROBAR)=-136.1  vs  R(REVISAR)=-113.9
   En ambos casos el costo esperado de APROBAR supera
   al de REVISAR. El agente aprende a proteger los
   segmentos con mayor heterogeneidad interna.

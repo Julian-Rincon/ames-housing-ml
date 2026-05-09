@@ -1,6 +1,6 @@
-# SAVI: Sistema Autonomo de Valuacion Inmobiliaria
+# SAVI: Autonomous Real Estate Valuation System
 
-**End-to-end Machine Learning pipeline for Ames Housing: segmentation, price prediction and risk-aware decision making with Reinforcement Learning.**
+**End-to-end Machine Learning pipeline for Ames Housing: market segmentation, price prediction, and risk-aware decision making with Reinforcement Learning.**
 
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-orange.svg)](https://scikit-learn.org/)
@@ -8,146 +8,146 @@
 [![Reinforcement Learning](https://img.shields.io/badge/AI-Markov_Decision_Process-purple.svg)]()
 [![GitHub Pages](https://img.shields.io/badge/Demo-GitHub_Pages-success.svg)](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
 
-> **Demo interactiva:** [ver el agente SAVI y la politica optima del MDP](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
+> **Interactive demo:** [explore the SAVI agent and its optimal MDP policy](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
 
 ---
 
-## Resumen Ejecutivo
+## Executive Summary
 
-La valuacion inmobiliaria tradicional depende de revision humana: es lenta, costosa y puede variar entre tasadores. Un modelo de regresion ayuda a estimar precios, pero no resuelve por si solo la pregunta de negocio mas importante: **cuando conviene confiar en la prediccion y cuando conviene escalar el caso a revision humana**.
+Traditional real estate valuation depends heavily on human appraisers. It is slow, expensive, and can vary across reviewers. A regression model can estimate a property price, but it does not answer the operational question that matters most: **when should the business trust the prediction, and when should it escalate the case to human review?**
 
-SAVI aborda ese problema como un sistema de decision. El pipeline segmenta el mercado con clustering, estima precios con un modelo supervisado y usa un **Proceso de Decision de Markov (MDP)** para elegir entre tres acciones:
+SAVI frames valuation as a decision system. The pipeline segments the housing market with clustering, estimates prices with a supervised model, and uses a **Markov Decision Process (MDP)** to select one of three actions:
 
-| Accion | Uso operativo |
+| Action | Operational Meaning |
 |---|---|
-| `APROBAR` | Automatizar la valuacion cuando el riesgo esperado es bajo. |
-| `REVISAR` | Enviar a tasador humano cuando el costo esperado del error supera el costo de auditoria. |
-| `RECHAZAR` | Solicitar mas informacion cuando el segmento tiene incertidumbre extrema o datos insuficientes. |
+| `APPROVE` | Automate the valuation when expected risk is low. |
+| `REVIEW` | Send the case to a human appraiser when expected model error is more expensive than review. |
+| `REJECT` | Request more information when the segment is too uncertain or underrepresented. |
 
 ---
 
-## Evolucion del Proyecto
+## Project Evolution
 
-Este repositorio conserva el trabajo original de analisis exploratorio, clustering y modelos supervisados. La actualizacion SAVI no reemplaza esa base: la extiende hacia una capa de decision autonoma.
+This repository preserves the original exploratory analysis, clustering, and supervised learning work. The SAVI update does not replace that foundation; it extends it with an autonomous decision layer.
 
-| Etapa | Objetivo | Artefactos |
+| Stage | Goal | Artifacts |
 |---|---|---|
-| Corte 1 / base ML | Segmentacion no supervisada y modelos predictivos sobre Ames Housing. | `notebooks/01` a `notebooks/08` |
-| Corte 3 / SAVI | Agente MDP que decide aprobar, revisar o rechazar valuaciones segun riesgo. | `MDP_Ames_SAVI.py`, `MDP_Ames_Presentacion.html`, `Documentacion_SAVI.pdf` |
+| ML foundation | Unsupervised segmentation and predictive modeling on Ames Housing. | `notebooks/01` to `notebooks/08` |
+| SAVI decision layer | MDP agent that decides whether to approve, review, or reject valuations based on risk. | `MDP_Ames_SAVI.py`, `MDP_Ames_Presentacion.html`, `Documentacion_SAVI.pdf` |
 
 ---
 
-## Arquitectura Tecnica
+## Technical Architecture
 
-### 1. Segmentacion del mercado
+### 1. Market Segmentation
 
-Se utiliza **K-Means** para convertir propiedades en estados del entorno. Cada estado representa un segmento del mercado con comportamiento economico similar.
+SAVI uses **K-Means** to convert properties into environment states. Each state represents a market segment with similar economic and structural behavior.
 
-En la version SAVI:
+Current SAVI configuration:
 
-- `k = 6` estados.
-- Variables numericas escaladas con `StandardScaler`.
-- Validacion con `silhouette_score`.
+- `k = 6` states.
+- Numerical features scaled with `StandardScaler`.
+- Cluster validation with `silhouette_score`.
 
-### 2. Prediccion supervisada
+### 2. Supervised Price Prediction
 
-El pipeline entrena un modelo **XGBoost Regressor** para estimar `SalePrice`. El cluster calculado por K-Means se incorpora como feature contextual, conectando la segmentacion con la prediccion.
+The pipeline trains an **XGBoost Regressor** to estimate `SalePrice`. The K-Means cluster is added as a contextual feature, connecting market segmentation with price prediction.
 
-Resultado reportado por el script SAVI:
+Latest run on the local Ames Housing dataset:
 
-| Modelo | R2 | MAE |
+| Model | R2 | MAE |
 |---|---:|---:|
-| XGBoost + cluster feature | 0.9606 | $26,254 |
+| XGBoost + cluster feature | 0.9609 | $26,752 |
 
-### 3. Decision con Reinforcement Learning
+### 3. Reinforcement Learning Decision Layer
 
-El problema se formula como un **MDP**:
+The business problem is modeled as an **MDP**:
 
-- **Estados:** clusters de propiedades.
-- **Acciones:** `APROBAR`, `REVISAR`, `RECHAZAR`.
-- **Recompensas:** costo economico esperado segun error relativo de prediccion y accion tomada.
-- **Transiciones:** probabilidades historicas entre estados.
-- **Algoritmo:** Value Iteration.
+- **States:** property clusters.
+- **Actions:** `APPROVE`, `REVIEW`, `REJECT`.
+- **Rewards:** expected financial outcome based on relative prediction error and action taken.
+- **Transitions:** historical state transition probabilities.
+- **Algorithm:** Value Iteration.
 
-Parametros principales:
+Core parameters:
 
-| Parametro | Valor |
+| Parameter | Value |
 |---|---:|
 | `gamma` | 0.95 |
 | `theta` | 0.0001 |
-| Convergencia | 259 iteraciones |
+| Convergence | 259 iterations |
 
 ---
 
-## Resultados SAVI
+## SAVI Results
 
-El agente aprende una politica operativa que combina automatizacion y control de riesgo:
+The agent learns a policy that balances automation and risk control:
 
-| Resultado | Interpretacion |
+| Result | Interpretation |
 |---|---|
-| 93.1% `APROBAR` | Automatizacion directa en segmentos donde el modelo es suficientemente estable. |
-| 6.9% `REVISAR` | Revision humana selectiva en segmentos con mayor incertidumbre. |
-| Casos `RECHAZAR` | Proteccion frente a segmentos atipicos o con informacion insuficiente. |
+| 93.1% `APPROVE` | Direct automation in stable segments where the model is reliable. |
+| 6.9% `REVIEW` | Selective human review in higher-uncertainty segments. |
+| 0.03% `REJECT` | Additional information requested for rare or poorly represented cases. |
 
-La decision no se basa solo en el precio estimado, sino en el costo esperado de equivocarse. Ese punto es clave para aplicaciones PropTech, credito hipotecario, underwriting inmobiliario y automatizacion de tasaciones.
+The decision is not based only on the predicted price. It is based on the expected cost of being wrong, which makes the approach relevant for PropTech, mortgage underwriting, real estate risk scoring, and automated appraisal workflows.
 
 ---
 
-## Resultados Previos del Repositorio
+## Original Repository Results
 
-La base original del proyecto incluye analisis no supervisado y supervisado sobre Ames Housing extendido 2006-2024.
+The original project includes unsupervised and supervised analysis on the extended Ames Housing dataset.
 
 ### Dataset
 
-| Propiedad | Valor |
+| Property | Value |
 |---|---:|
-| Filas | 20,203 |
-| Columnas | 81 |
-| Periodo | 2006-2024 |
-| Variable objetivo | `SalePrice` |
-| Fuentes | Kaggle + City of Ames Assessor 2024 |
+| Rows | 20,203 |
+| Columns | 81 |
+| Period | 2006-2024 |
+| Target variable | `SalePrice` |
+| Sources | Kaggle + City of Ames Assessor 2024 |
 
-> Nota: el dataset no se versiona por tamano. Las instrucciones estan en `data/README.md`.
+> The dataset is not committed because of size and reproducibility constraints. See `data/README.md`.
 
-### Modelos supervisados previos
+### Previous Supervised Models
 
-| Modelo | Tarea | R2 / metrica principal | MAE |
+| Model | Task | Main metric | MAE |
 |---|---|---:|---:|
-| LightGBM | Regresion | 0.75 | ~$23,600 |
-| Random Forest | Regresion | 0.3349 | $47,546 |
-| Decision Tree | Regresion | 0.3276 | $48,084 |
-| KNN | Regresion | 0.2509 | $51,562 |
-| Linear Regression | Regresion | 0.0767 | $60,076 |
-| SVM | Clasificacion binaria | Accuracy 95% | F1 0.9398 |
+| LightGBM | Regression | R2 = 0.75 | ~$23,600 |
+| Random Forest | Regression | R2 = 0.3349 | $47,546 |
+| Decision Tree | Regression | R2 = 0.3276 | $48,084 |
+| KNN | Regression | R2 = 0.2509 | $51,562 |
+| Linear Regression | Regression | R2 = 0.0767 | $60,076 |
+| SVM | Binary classification | Accuracy = 95% | F1 = 0.9398 |
 
-### Clustering previo
+### Previous Clustering Work
 
-| Algoritmo | Configuracion / resultado |
+| Algorithm | Result |
 |---|---|
-| K-Means | Segmentacion con Elbow, Silhouette y Dunn Index. |
-| Hierarchical Clustering | Comparacion Ward, Complete y Average. |
-| DBSCAN | Deteccion de clusters, ruido y outliers de alto valor. |
-| PCA | PC1=41.6%, PC2=13.5%, total=55.0%. |
+| K-Means | Segmentation using Elbow, Silhouette, and Dunn Index. |
+| Hierarchical Clustering | Comparison of Ward, Complete, and Average linkage. |
+| DBSCAN | Detection of clusters, noise, and high-value outliers. |
+| PCA | PC1 = 41.6%, PC2 = 13.5%, total = 55.0%. |
 
 ---
 
-## Estructura del Repositorio
+## Repository Structure
 
 ```text
 .
-├── MDP_Ames_SAVI.py              # Pipeline SAVI: K-Means + XGBoost + MDP + Value Iteration
-├── MDP_Ames_Presentacion.html    # Demo visual interactiva para GitHub Pages
-├── Documentacion_SAVI.pdf        # Documento tecnico del agente SAVI
-├── Taller1_Corte3_Final.docx     # Fuente editable de la documentacion
-├── notebooks/                    # Trabajo original de clustering y modelos supervisados
-├── data/                         # Instrucciones para ubicar el dataset local
-├── requirements.txt              # Dependencias Python
+├── MDP_Ames_SAVI.py              # SAVI pipeline: K-Means + XGBoost + MDP + Value Iteration
+├── MDP_Ames_Presentacion.html    # Interactive visual demo for GitHub Pages
+├── Documentacion_SAVI.pdf        # Technical paper for the SAVI agent
+├── Taller1_Corte3_Final.docx     # Editable source document
+├── notebooks/                    # Original clustering and supervised learning work
+├── data/                         # Dataset placement instructions
+├── requirements.txt              # Python dependencies
 └── README.md
 ```
 
 ---
 
-## Como Ejecutar
+## How to Run
 
 ```bash
 git clone git@github.com:Julian-Rincon/ames-housing-ml.git
@@ -155,7 +155,7 @@ cd ames-housing-ml
 pip install -r requirements.txt
 ```
 
-Para ejecutar el pipeline SAVI, el script busca `ames_combined_2006_2024.csv` en este orden:
+The SAVI script searches for `ames_combined_2006_2024.csv` in this order:
 
 ```text
 AMES_DATASET_PATH
@@ -164,13 +164,13 @@ AMES_DATASET_PATH
 C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv
 ```
 
-Luego corre:
+Then run:
 
 ```bash
 python MDP_Ames_SAVI.py
 ```
 
-Para reproducir el trabajo previo, ubica `ames_combined_2006_2024.csv` en `data/` y abre los notebooks en orden:
+To reproduce the original notebook workflow, place `ames_combined_2006_2024.csv` in `data/` and open the notebooks in order:
 
 ```text
 01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08
@@ -178,7 +178,7 @@ Para reproducir el trabajo previo, ubica `ames_combined_2006_2024.csv` en `data/
 
 ---
 
-## Autores
+## Authors
 
 - **Julian Rincon** - [github.com/Julian-Rincon](https://github.com/Julian-Rincon)
 - Valeria Larea

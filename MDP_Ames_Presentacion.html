@@ -228,7 +228,7 @@ nav button:hover{background:var(--cyan);color:var(--bg);border-color:var(--cyan)
     </p>
     <div class="metric-grid" style="max-width:720px">
       <div class="metric"><div class="n" style="color:var(--cyan)">20,203</div><div class="l">Propiedades</div></div>
-      <div class="metric"><div class="n" style="color:var(--green)">0.9606</div><div class="l">R² del modelo</div></div>
+      <div class="metric"><div class="n" style="color:var(--green)">0.9609</div><div class="l">R² del modelo</div></div>
       <div class="metric"><div class="n" style="color:var(--gold)">6</div><div class="l">Estados (clusters)</div></div>
       <div class="metric"><div class="n" style="color:var(--purple)">259</div><div class="l">Iteraciones Bellman</div></div>
     </div>
@@ -265,8 +265,8 @@ nav button:hover{background:var(--cyan);color:var(--bg);border-color:var(--cyan)
         <div class="card-label">02 · Nuestro modelo base: K-Means + XGBoost</div>
         <div style="font-size:13px;color:var(--muted);line-height:1.9">
           🔵 <strong style="color:var(--cyan)">20,203</strong> propiedades de Ames, Iowa (2006–2024)<br>
-          🟢 <strong style="color:var(--green)">R²=0.9606</strong> — modelo híbrido K-Means (k=6) + XGBoost<br>
-          🟡 <strong style="color:var(--gold)">MAE=$26,254</strong> — error promedio de valuación<br>
+          🟢 <strong style="color:var(--green)">R²=0.9609</strong> — modelo híbrido K-Means (k=6) + XGBoost<br>
+          🟡 <strong style="color:var(--gold)">MAE=$26,752</strong> — error promedio de valuación<br>
           🔵 <strong style="color:var(--cyan)">6 clusters</strong> de mercado como espacio de estados
         </div>
         <div style="margin-top:10px;font-size:12px;color:var(--muted)">
@@ -505,7 +505,7 @@ V <span class="op">=</span> {s: <span class="nm">0</span> <span class="kw">for</
         <div class="card" style="flex:1;border-left:3px solid var(--green)">
           <div style="font-size:10px;font-family:var(--font-mono);color:var(--green);letter-spacing:1px;margin-bottom:6px">REGLA 01</div>
           <div style="font-size:13px;font-weight:500;margin-bottom:6px">S4 y S5 siempre APRUEBAN</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.7">Los clusters más grandes (31.1% y 32.5% del dataset) tienen el menor error del modelo. R(APROBAR) ≈ −$5.8, R(REVISAR) = −$127. El agente prefiere APROBAR porque la ganancia esperada supera el costo de revisión.</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.7">Los clusters más grandes (31.1% y 32.5% del dataset) tienen el menor error del modelo. R(APROBAR) llega a ≈ −$7.4, mejor que R(REVISAR) ≈ −$127. El agente prefiere APROBAR porque la pérdida esperada es menor que el costo de revisión.</div>
         </div>
         <div class="card" style="flex:1;border-left:3px solid var(--gold)">
           <div style="font-size:10px;font-family:var(--font-mono);color:var(--gold);letter-spacing:1px;margin-bottom:6px">REGLA 02</div>
@@ -594,8 +594,8 @@ V <span class="op">=</span> {s: <span class="nm">0</span> <span class="kw">for</
     <div class="concl-card">
       <div class="concl-num">02 · SUPERVISADO</div>
       <div class="concl-title">XGBoost como función de transición</div>
-      <div class="concl-body">El mejor modelo supervisado (R²=0.9606) no fue reemplazado por el MDP — fue integrado. Valida las transiciones históricas y puede predecir el cluster futuro de una propiedad con features modificados.</div>
-      <span class="concl-tag" style="color:var(--green);border-color:var(--green)">R²=0.9606 · MAE=$26,254 · 400 árboles</span>
+      <div class="concl-body">El mejor modelo supervisado (R²=0.9609) no fue reemplazado por el MDP — fue integrado. Valida las transiciones históricas y puede predecir el cluster futuro de una propiedad con features modificados.</div>
+      <span class="concl-tag" style="color:var(--green);border-color:var(--green)">R²=0.9609 · MAE=$26,752 · 400 árboles</span>
     </div>
     <div class="concl-card">
       <div class="concl-num">03 · REINFORCEMENT LEARNING</div>
@@ -614,8 +614,8 @@ V <span class="op">=</span> {s: <span class="nm">0</span> <span class="kw">for</
     <div style="font-size:1.5rem">🏆</div>
     <div style="font-size:13px;color:var(--text);line-height:1.7">
       <strong>SAVI — Sistema Autónomo de Valuación Inmobiliaria</strong> · 
-      80% aprobaciones directas en mercado medio · 
-      Revisión humana para el 19% de propiedades con alta incertidumbre · 
+      93.1% aprobaciones directas en mercado medio · 
+      Revisión humana para el 6.9% de propiedades con alta incertidumbre · 
       RECHAZAR para el 0.03% de casos críticos
     </div>
   </div>
@@ -644,14 +644,14 @@ V <span class="op">=</span> {s: <span class="nm">0</span> <span class="kw">for</
 <script>
 /* ── DATA (resultados reales del MDP) ── */
 const DATA = {
-  r2: 0.9606, mae: 26254, iterations: 259, gamma: 0.95,
+  r2: 0.9609, mae: 26752, iterations: 259, gamma: 0.95,
   clusters: [
-    {cluster:0,count:766,pct:3.8,mean_price:140288,mean_qual:5.5,mean_area:1274,policy:'REVISAR',V:-1770.9,R_aprobar:-219.6,R_revisar:-108.0,R_rechazar:-161.5},
-    {cluster:1,count:5956,pct:29.5,mean_price:657661,mean_qual:4.4,mean_area:1964,policy:'APROBAR',V:-1211.7,R_aprobar:-62.1,R_revisar:-120.3,R_rechazar:-182.4},
-    {cluster:2,count:625,pct:3.1,mean_price:236207,mean_qual:7.0,mean_area:1848,policy:'REVISAR',V:-1774.3,R_aprobar:-129.6,R_revisar:-114.8,R_rechazar:-179.2},
-    {cluster:3,count:7,pct:0.0,mean_price:288138,mean_qual:7.6,mean_area:2948,policy:'RECHAZAR',V:-1632.3,R_aprobar:-2000.0,R_revisar:-50.0,R_rechazar:50.0},
-    {cluster:4,count:6285,pct:31.1,mean_price:194953,mean_qual:6.4,mean_area:974,policy:'APROBAR',V:-613.1,R_aprobar:-5.8,R_revisar:-127.4,R_rechazar:-185.3},
-    {cluster:5,count:6564,pct:32.5,mean_price:250400,mean_qual:5.5,mean_area:1373,policy:'APROBAR',V:-1278.2,R_aprobar:-81.8,R_revisar:-119.5,R_rechazar:-180.9}
+    {cluster:0,count:766,pct:3.8,mean_price:140289,mean_qual:5.5,mean_area:1274,policy:'REVISAR',V:-1784.29,R_aprobar:-169.9,R_revisar:-113.6,R_rechazar:-168.5},
+    {cluster:1,count:5956,pct:29.5,mean_price:657661,mean_qual:4.4,mean_area:1964,policy:'APROBAR',V:-1189.24,R_aprobar:-63.1,R_revisar:-119.6,R_rechazar:-183.7},
+    {cluster:2,count:625,pct:3.1,mean_price:236208,mean_qual:7.0,mean_area:1848,policy:'REVISAR',V:-1780.70,R_aprobar:-136.1,R_revisar:-113.9,R_rechazar:-183.8},
+    {cluster:3,count:7,pct:0.0,mean_price:288139,mean_qual:7.6,mean_area:2948,policy:'RECHAZAR',V:-1645.08,R_aprobar:-2000.0,R_revisar:-50.0,R_rechazar:50.0},
+    {cluster:4,count:6285,pct:31.1,mean_price:194953,mean_qual:6.4,mean_area:974,policy:'APROBAR',V:-614.47,R_aprobar:-7.4,R_revisar:-127.0,R_rechazar:-185.3},
+    {cluster:5,count:6564,pct:32.5,mean_price:250401,mean_qual:5.5,mean_area:1373,policy:'APROBAR',V:-1231.78,R_aprobar:-75.7,R_revisar:-119.4,R_rechazar:-180.9}
   ],
   transitions: {
     0:{0:0.514,1:0.001,2:0.443,3:0.005,4:0.004,5:0.033},
@@ -872,4 +872,3 @@ updateNav();
 </script>
 </body>
 </html>
-

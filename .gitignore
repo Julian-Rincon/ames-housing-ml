@@ -14,6 +14,7 @@ env/
 # Dataset (too large, download separately)
 data/*.csv
 data/*.xlsx
+MDP_SAVI_politica.png
 
 # OS
 .DS_Store
