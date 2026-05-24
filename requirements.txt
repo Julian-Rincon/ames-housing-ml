@@ -10,3 +10,4 @@ graphviz
 jupyter
 ipykernel
 scipy
+torch>=2.0.0

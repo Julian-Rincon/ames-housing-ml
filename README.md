@@ -6,17 +6,18 @@
 [![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-orange.svg)](https://scikit-learn.org/)
 [![XGBoost](https://img.shields.io/badge/Model-XGBoost-red.svg)](https://xgboost.readthedocs.io/)
 [![Reinforcement Learning](https://img.shields.io/badge/AI-Markov_Decision_Process-purple.svg)]()
-[![GitHub Pages](https://img.shields.io/badge/Demo-GitHub_Pages-success.svg)](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
+[![PyTorch](https://img.shields.io/badge/RL-PyTorch_DQN-EE4C2C.svg)](https://pytorch.org/)
+[![GitHub Pages](https://img.shields.io/badge/Demo-GitHub_Pages-success.svg)](https://julian-rincon.github.io/ames-housing-ml/SAVI_v2_ParcialFinal.html)
 
-> **Interactive demo:** [explore the SAVI agent and its optimal MDP policy](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
+> **Interactive demo:** [explore the SAVI v2 full RL pipeline](https://julian-rincon.github.io/ames-housing-ml/SAVI_v2_ParcialFinal.html)
+>
+> **v1 demo:** [MDP Value Iteration presentation](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
 
 ---
 
 ## Executive Summary
 
-Traditional real estate valuation depends heavily on human appraisers. It is slow, expensive, and can vary across reviewers. A regression model can estimate a property price, but it does not answer the operational question that matters most: **when should the business trust the prediction, and when should it escalate the case to human review?**
-
-SAVI frames valuation as a decision system. The pipeline segments the housing market with clustering, estimates prices with a supervised model, and uses a **Markov Decision Process (MDP)** to select one of three actions:
+SAVI v2 extends the original MDP framework with a complete Reinforcement Learning pipeline. Starting from market segmentation with K-Means and price prediction with XGBoost (R²=0.9609), the system trains three RL agents in sequence: Value Iteration (MDP, convergence in 259 iterations), Q-Learning tabular (8,000 episodes, ε-greedy exploration), and a Deep Q-Network (PyTorch, Double DQN implicit architecture, 150 epochs, Adam optimizer). The final decision policy is determined by consensus across all three agents, with DQN as tiebreaker.
 
 | Action | Operational Meaning |
 |---|---|
@@ -28,12 +29,13 @@ SAVI frames valuation as a decision system. The pipeline segments the housing ma
 
 ## Project Evolution
 
-This repository preserves the original exploratory analysis, clustering, and supervised learning work. The SAVI update does not replace that foundation; it extends it with an autonomous decision layer.
+This repository preserves the original exploratory analysis, clustering, and supervised learning work. The SAVI updates do not replace that foundation; they extend it with increasingly complete autonomous decision layers.
 
 | Stage | Goal | Artifacts |
 |---|---|---|
-| ML foundation | Unsupervised segmentation and predictive modeling on Ames Housing. | `notebooks/01` to `notebooks/08` |
-| SAVI decision layer | MDP agent that decides whether to approve, review, or reject valuations based on risk. | `MDP_Ames_SAVI.py`, `MDP_Ames_Presentacion.html`, `Documentacion_SAVI.pdf` |
+| ML foundation | Unsupervised segmentation and predictive modeling | `notebooks/01` to `notebooks/08` |
+| SAVI v1 decision layer | MDP Value Iteration agent | `MDP_Ames_SAVI.py`, `MDP_Ames_Presentacion.html` |
+| SAVI v2 full RL pipeline | Q-Learning + DQN + consensus policy + IEEE paper | `SAVI_v2_ParcialFinal.py`, `SAVI_v2_ParcialFinal.html`, `SAVI_v2_ArticuloIEEE.docx` |
 
 ---
 
@@ -59,35 +61,40 @@ Latest run on the local Ames Housing dataset:
 |---|---:|---:|
 | XGBoost + cluster feature | 0.9609 | $26,752 |
 
-### 3. Reinforcement Learning Decision Layer
+### 3. Reinforcement Learning Pipeline (v2)
 
-The business problem is modeled as an **MDP**:
+SAVI v2 trains three RL agents in sequence and combines their policies:
 
-- **States:** property clusters.
-- **Actions:** `APPROVE`, `REVIEW`, `REJECT`.
-- **Rewards:** expected financial outcome based on relative prediction error and action taken.
-- **Transitions:** historical state transition probabilities.
-- **Algorithm:** Value Iteration.
+**3a. Value Iteration (MDP)**
+- States: K-Means clusters (k=6)
+- Actions: APPROVE, REVIEW, REJECT
+- Convergence: 259 iterations (θ=0.0001, γ=0.95)
 
-Core parameters:
+**3b. Q-Learning Tabular**
+- Episodes: 8,000
+- Learning rate α=0.1, ε-greedy decay from 1.0 → 0.05
+- State space: same 6 clusters
 
-| Parameter | Value |
-|---|---:|
-| `gamma` | 0.95 |
-| `theta` | 0.0001 |
-| Convergence | 259 iterations |
+**3c. Deep Q-Network (PyTorch)**
+- Architecture: fully connected network on top-20 XGBoost features (continuous state vector)
+- Double DQN implicit (online vs target network)
+- 150 epochs, Adam lr=3e-4, batch=128, replay buffer=20,000
+- ε decay: 1.0 → 0.05 over training
+
+**3d. Consensus Policy**
+Final policy = majority vote across VI, QL, DQN. DQN breaks ties.
 
 ---
 
 ## SAVI Results
 
-The agent learns a policy that balances automation and risk control:
-
 | Result | Interpretation |
 |---|---|
-| 93.1% `APPROVE` | Direct automation in stable segments where the model is reliable. |
-| 6.9% `REVIEW` | Selective human review in higher-uncertainty segments. |
-| 0.03% `REJECT` | Additional information requested for rare or poorly represented cases. |
+| XGBoost R²=0.9609 | Price prediction baseline |
+| 259 VI iterations | MDP policy convergence |
+| 8,000 QL episodes | Tabular agent training |
+| 150 DQN epochs | Neural agent training |
+| Consensus policy | Final APPROVE/REVIEW/REJECT per cluster |
 
 The decision is not based only on the predicted price. It is based on the expected cost of being wrong, which makes the approach relevant for PropTech, mortgage underwriting, real estate risk scoring, and automated appraisal workflows.
 
@@ -135,13 +142,15 @@ The original project includes unsupervised and supervised analysis on the extend
 
 ```text
 .
-├── MDP_Ames_SAVI.py              # SAVI pipeline: K-Means + XGBoost + MDP + Value Iteration
-├── MDP_Ames_Presentacion.html    # Interactive visual demo for GitHub Pages
-├── Documentacion_SAVI.pdf        # Technical paper for the SAVI agent
-├── Taller1_Corte3_Final.docx     # Editable source document
-├── notebooks/                    # Original clustering and supervised learning work
-├── data/                         # Dataset placement instructions
-├── requirements.txt              # Python dependencies
+├── SAVI_v2_ParcialFinal.py        # SAVI v2: full RL pipeline (VI + Q-Learning + DQN)
+├── SAVI_v2_ParcialFinal.html      # Interactive v2 presentation for GitHub Pages
+├── SAVI_v2_ArticuloIEEE.docx      # IEEE-format technical paper
+├── MDP_Ames_SAVI.py               # SAVI v1: MDP + Value Iteration
+├── MDP_Ames_Presentacion.html     # SAVI v1 interactive demo
+├── Documentacion_SAVI.pdf         # v1 technical documentation
+├── notebooks/
+├── data/
+├── requirements.txt
 └── README.md
 ```
 
@@ -164,7 +173,13 @@ AMES_DATASET_PATH
 C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv
 ```
 
-Then run:
+Then run the v2 pipeline:
+
+```bash
+python SAVI_v2_ParcialFinal.py
+```
+
+To run the original v1 MDP pipeline:
 
 ```bash
 python MDP_Ames_SAVI.py

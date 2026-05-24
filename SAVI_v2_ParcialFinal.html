@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAVI v2.0 · Parcial Final ML C3 · Rincon · Larea · Garzón · Niño</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#03060D;--panel:#080F1C;--card:#0C1726;
+  --border:#112240;--border2:#1A3355;
+  --cyan:#00E5FF;--green:#00FF9C;--gold:#FFB300;--purple:#A78BFA;--red:#FF4D6D;--blue:#3B82F6;
+  --text:#E2EBF7;--muted:#5A7A9B;--dim:#2A4060;
+  --font-head:'Syne',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'DM Mono',monospace;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body)}
+.deck{width:100vw;height:100vh;position:relative;overflow:hidden}
+.slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  padding:48px 64px 44px;opacity:0;pointer-events:none;
+  transition:opacity .4s cubic-bezier(.4,0,.2,1),transform .4s cubic-bezier(.4,0,.2,1);
+  transform:translateX(36px);overflow:hidden;
+}
+.slide.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.slide.prev{opacity:0;transform:translateX(-36px)}
+.slide::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,rgba(0,229,255,.02) 0 1px,transparent 1px 80px),
+             repeating-linear-gradient(0deg,rgba(0,229,255,.02) 0 1px,transparent 1px 80px);
+  pointer-events:none;z-index:0
+}
+.slide>*{position:relative;z-index:1}
+nav{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;z-index:100;
+  background:rgba(8,15,28,.9);backdrop-filter:blur(12px);
+  border:1px solid var(--border2);border-radius:40px;padding:8px 18px;
+}
+nav button{
+  width:30px;height:30px;border-radius:50%;border:1px solid var(--border2);
+  background:transparent;color:var(--text);cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;
+}
+nav button:hover{background:var(--cyan);color:var(--bg);border-color:var(--cyan)}
+.nav-dots{display:flex;gap:5px;align-items:center}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--dim);cursor:pointer;transition:all .2s}
+.dot.active{background:var(--cyan);width:16px;border-radius:3px}
+#slide-counter{font-family:var(--font-mono);font-size:10px;color:var(--muted);min-width:38px;text-align:center}
+.eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan);margin-bottom:8px}
+.hero-title{font-family:var(--font-head);font-size:clamp(2.2rem,4.5vw,3.6rem);font-weight:800;line-height:1.05;color:#fff;margin-bottom:14px}
+.hero-title span{color:var(--cyan)}
+.section-title{font-family:var(--font-head);font-size:clamp(1.5rem,2.8vw,2.2rem);font-weight:700;color:#fff;margin-bottom:6px}
+.section-sub{font-size:12px;color:var(--muted);margin-bottom:22px;font-weight:300;letter-spacing:.3px}
+.row{display:flex;gap:18px;flex:1}
+.col{display:flex;flex-direction:column;gap:14px;flex:1}
+.v-line{width:1px;background:var(--border);flex-shrink:0;align-self:stretch;margin:0 4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;transition:border-color .2s}
+.card:hover{border-color:var(--border2)}
+.card-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.card-val{font-size:1.8rem;font-weight:700;font-family:var(--font-head);color:var(--cyan)}
+.card-desc{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5}
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.metric{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;text-align:center}
+.metric .n{font-family:var(--font-head);font-size:1.7rem;font-weight:800}
+.metric .l{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.5px}
+.code-wrap{background:#010408;border:1px solid var(--border);border-radius:10px;overflow:hidden;font-family:var(--font-mono);font-size:11.5px;line-height:1.7}
+.code-header{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:7px}
+.code-dot{width:9px;height:9px;border-radius:50%}
+.code-title{font-size:10px;color:var(--muted);margin-left:7px;letter-spacing:1px}
+.code-body{padding:14px 18px;overflow-y:auto;max-height:240px}
+.code-body::-webkit-scrollbar{width:3px}
+.code-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.kw{color:#7CB9E8}.fn{color:#00E5FF}.cm{color:#3A5A7A;font-style:italic}.st{color:#00FF9C}.nm{color:#FFB300}.op{color:#A78BFA}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;font-weight:500}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);font-size:9px;border:1px solid currentColor}
+/* ── SLIDE 1: COVER ── */
+.cover-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;flex:1;align-items:center}
+.cover-left{}
+.cover-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.2);border-radius:24px;padding:6px 16px;margin-bottom:20px}
+.cover-badge span{font-family:var(--font-mono);font-size:10px;color:var(--cyan);letter-spacing:2px}
+.cover-title{font-family:var(--font-head);font-size:clamp(2.8rem,5.5vw,4.4rem);font-weight:800;line-height:1.0;color:#fff;margin-bottom:8px}
+.cover-title em{color:var(--cyan);font-style:normal}
+.cover-sub{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.7;max-width:480px}
+.team-chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--text)}
+.cover-right{display:flex;flex-direction:column;gap:12px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;display:flex;align-items:center;gap:16px}
+.stat-icon{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.stat-content .n{font-family:var(--font-head);font-size:1.6rem;font-weight:800}
+.stat-content .l{font-size:10px;color:var(--muted);margin-top:2px}
+/* ── PIPELINE DIAGRAM ── */
+.pipeline{display:flex;align-items:center;gap:0;padding:20px 0}
+.pipe-step{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center;min-width:120px;flex:1}
+.pipe-step .icon{font-size:22px;margin-bottom:6px}
+.pipe-step .name{font-family:var(--font-head);font-size:11px;font-weight:700;color:#fff;margin-bottom:3px}
+.pipe-step .sub{font-size:9px;color:var(--muted)}
+.pipe-arrow{color:var(--border2);font-size:20px;flex-shrink:0;padding:0 4px}
+/* ── COMPARISON TABLE ── */
+.comp-table{width:100%;border-collapse:collapse;font-size:11px}
+.comp-table th{background:var(--panel);color:var(--muted);font-family:var(--font-mono);font-size:9px;letter-spacing:1px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border2)}
+.comp-table td{padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table .winner{color:var(--cyan);font-weight:600}
+/* ── RL TIMELINE ── */
+.rl-timeline{display:flex;flex-direction:column;gap:12px}
+.rl-step{display:flex;gap:14px;align-items:flex-start}
+.rl-dot-col{display:flex;flex-direction:column;align-items:center;gap:0}
+.rl-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;font-family:var(--font-mono)}
+.rl-line{width:2px;flex:1;background:var(--border);min-height:12px}
+.rl-content{flex:1;padding-top:3px}
+.rl-title{font-size:12px;font-weight:600;margin-bottom:3px}
+.rl-desc{font-size:10px;color:var(--muted);line-height:1.6}
+/* ── POLICY DISPLAY ── */
+.policy-chart{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;flex:1}
+.policy-bar-wrap{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.p-row{display:flex;align-items:center;gap:10px}
+.p-label{font-family:var(--font-mono);font-size:10px;color:var(--text);min-width:80px}
+.p-bar{flex:1;height:26px;background:var(--panel);border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+.p-fill{height:100%;display:flex;align-items:center;padding-left:8px;font-family:var(--font-mono);font-size:10px;transition:width 1.2s ease;border-radius:4px}
+.p-count{font-family:var(--font-mono);font-size:9px;color:var(--muted);min-width:60px;text-align:right}
+.policy-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);font-size:9px;border:1px solid currentColor;letter-spacing:.5px}
+.prob-high{color:var(--cyan);font-family:var(--font-mono);font-size:10px}
+.prob-med{color:var(--gold);font-family:var(--font-mono);font-size:10px}
+.prob-low{color:var(--muted);font-family:var(--font-mono);font-size:10px}
+.t-table{border-collapse:collapse;font-size:10px;width:100%}
+.t-table th,.t-table td{padding:5px 8px;border:1px solid var(--border)}
+.t-table th{background:var(--panel);color:var(--muted);font-family:var(--font-mono);font-size:9px;text-align:center}
+/* ── DQN ARCH ── */
+.nn-layer{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:center}
+.nn-layer .l-name{font-family:var(--font-mono);font-size:10px;color:var(--cyan);font-weight:500}
+.nn-layer .l-shape{font-size:9px;color:var(--muted);margin-top:2px}
+.nn-arrow{text-align:center;color:var(--border2);font-size:16px;line-height:1}
+/* ── DEMO ── */
+.demo-wrap{display:flex;gap:18px;flex:1}
+.demo-left{display:flex;flex-direction:column;gap:12px;flex:1}
+.demo-right{display:flex;flex-direction:column;gap:12px;flex:1.2}
+.input-group{display:flex;flex-direction:column;gap:5px}
+.input-group label{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.slider-row{display:flex;align-items:center;gap:10px}
+input[type=range]{flex:1;accent-color:var(--cyan);cursor:pointer}
+.slider-val{font-family:var(--font-mono);font-size:12px;color:var(--cyan);min-width:45px;text-align:right}
+.decision-box{background:var(--card);border:2px solid var(--border2);border-radius:12px;padding:18px 20px;text-align:center;transition:all .3s}
+.decision-box.aprobar{border-color:var(--green)}
+.decision-box.revisar{border-color:var(--gold)}
+.decision-box.rechazar{border-color:var(--red)}
+#d-icon{font-size:2rem;margin-bottom:6px}
+#d-action{font-family:var(--font-head);font-size:1.4rem;font-weight:800}
+#d-reason{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5}
+#d-reward{font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:8px}
+.q-display{font-family:var(--font-mono);font-size:10.5px;line-height:1.9;background:#010408;border:1px solid var(--border);border-radius:8px;padding:12px 14px;white-space:pre}
+/* ── COMPARISON RADAR ── */
+.cmp-row{display:grid;grid-template-columns:1.2fr repeat(3,1fr);gap:8px;padding:8px 0;border-bottom:1px solid var(--border);align-items:center;font-size:11px}
+.cmp-head{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px}
+.bar-mini{height:6px;border-radius:3px;margin-top:2px}
+/* ── CONCLUSIONS ── */
+.conclusion-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;flex:1}
+.concl-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.concl-icon{font-size:24px}
+.concl-title{font-size:12px;font-weight:600}
+.concl-body{font-size:10px;color:var(--muted);line-height:1.6;flex:1}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- ════════ SLIDE 0 — COVER ════════ -->
+<section class="slide active" id="s0">
+  <div class="cover-grid">
+    <div class="cover-left">
+      <div class="cover-badge">
+        <span>★ PARCIAL FINAL · CORTE 3 · ML 2026</span>
+      </div>
+      <div class="cover-title">SAVI<br><em>v2.0</em></div>
+      <p style="font-family:var(--font-head);font-size:1rem;color:var(--muted);letter-spacing:1px;margin-bottom:6px">SISTEMA AUTÓNOMO DE VALUACIÓN INMOBILIARIA</p>
+      <p class="cover-sub">Pipeline completo de Machine Learning aplicado al sector inmobiliario de Ames, Iowa. No Supervisado → Supervisado → MDP Value Iteration → Q-Learning → Deep Q-Network.</p>
+      <div class="team-chips">
+        <div class="chip">Julian Rincon</div>
+        <div class="chip">Valeria Larea</div>
+        <div class="chip">Nicolás Garzón</div>
+        <div class="chip">Juan Niño</div>
+        <div class="chip" style="color:var(--cyan);border-color:rgba(0,229,255,.3)">Universidad Sergio Arboleda</div>
+      </div>
+    </div>
+    <div class="cover-right">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(0,229,255,.1);color:var(--cyan)">📊</div>
+        <div class="stat-content"><div class="n" style="color:var(--cyan)">20,203</div><div class="l">predios · Ames 2006-2024</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(0,255,156,.1);color:var(--green)">🧠</div>
+        <div class="stat-content"><div class="n" style="color:var(--green)">R² 0.9609</div><div class="l">XGBoost · MAE $26,752</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(167,139,250,.1);color:var(--purple)">🤖</div>
+        <div class="stat-content"><div class="n" style="color:var(--purple)">DQN</div><div class="l">PyTorch · 20D estado continuo</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(255,179,0,.1);color:var(--gold)">🏆</div>
+        <div class="stat-content"><div class="n" style="color:var(--gold)">3 paradigmas</div><div class="l">No Sup. · Sup. · Refuerzo</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 1 — RESUMEN SEMESTRE ════════ -->
+<section class="slide" id="s1">
+  <div class="eyebrow">Corte 3 · Machine Learning 2026</div>
+  <h2 class="section-title">Resumen del semestre</h2>
+  <p class="section-sub">Tres paradigmas de aprendizaje aplicados en un único sistema de decisión</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1">
+      <div class="card" style="border-left:3px solid var(--cyan);flex:1">
+        <div class="card-label">BLOQUE 1 · NO SUPERVISADO</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+          <div style="font-size:11px;line-height:1.6">
+            <span style="color:var(--cyan)">K-Means</span> · clustering k=6 · elbow + silhouette<br>
+            <span style="color:var(--cyan)">Jerárquico Ward</span> · dendrograma · linkage<br>
+            <span style="color:var(--cyan)">DBSCAN</span> · densidad · ε-neighborhood<br>
+            <span style="color:var(--muted)">→ K-Means gana (silhouette=0.142) · define estados MDP</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--green);flex:1">
+        <div class="card-label">BLOQUE 2 · SUPERVISADO</div>
+        <div style="font-size:11px;line-height:1.6;margin-top:6px">
+          <span style="color:var(--green)">XGBoost</span> · gradient boosting · 400 árboles<br>
+          <span style="color:var(--green)">LightGBM</span> · leaf-wise · early stopping<br>
+          <span style="color:var(--green)">LightGBM C2</span> · R²=0.75, MAE=$23,600 · Corte 2<br>
+          <span style="color:var(--muted)">→ XGBoost R²=0.9609 · target log1p · feature engineering</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:1">
+      <div class="card" style="border-left:3px solid var(--gold);flex:1">
+        <div class="card-label">BLOQUE 3 · APRENDIZAJE POR REFUERZO</div>
+        <div style="font-size:11px;line-height:1.6;margin-top:6px">
+          <span style="color:var(--gold)">MDP + Value Iteration</span> · Ecuación de Bellman<br>
+          &nbsp;&nbsp;&nbsp;γ=0.95 · θ=0.0001 · 259 iteraciones · Taller 1<br>
+          <span style="color:var(--gold)">Q-Learning tabular</span> · ε-greedy · off-policy<br>
+          &nbsp;&nbsp;&nbsp;8,000 episodios · aprende de experiencia<br>
+          <span style="color:var(--purple)">Deep Q-Network (DQN)</span> · PyTorch · NUEVO<br>
+          &nbsp;&nbsp;&nbsp;FC(128)→BN→ReLU→FC(64)→FC(3)<br>
+          &nbsp;&nbsp;&nbsp;Experience Replay + Target Network<br>
+          <span style="color:var(--muted)">→ Política óptima en espacio de estado continuo (20D)</span>
+        </div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(0,229,255,.04),rgba(0,255,156,.04));border-color:var(--border2)">
+        <div class="card-label">PROBLEMA A RESOLVER</div>
+        <div style="font-size:11px;line-height:1.6;margin-top:6px">
+          Dado un predio con <strong>81 variables</strong>, ¿qué debe hacer el agente?<br>
+          <span style="color:var(--green)">APROBAR</span> → valuación automática directa<br>
+          <span style="color:var(--gold)">REVISAR</span> → derivar a tasador humano<br>
+          <span style="color:var(--red)">RECHAZAR</span> → solicitar más documentación
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 2 — DATASET ════════ -->
+<section class="slide" id="s2">
+  <div class="eyebrow">Fundamentos · Dataset</div>
+  <h2 class="section-title">Ames Housing 2006–2024</h2>
+  <p class="section-sub">Extensión del dataset clásico de Ames, Iowa. Dataset del curso ampliado con datos del Assessor's Office.</p>
+  <div class="metric-grid" style="grid-template-columns:repeat(5,1fr)">
+    <div class="metric"><div class="n" style="color:var(--cyan)">20,203</div><div class="l">PREDIOS</div></div>
+    <div class="metric"><div class="n" style="color:var(--green)">81</div><div class="l">VARIABLES</div></div>
+    <div class="metric"><div class="n" style="color:var(--gold)">$215K</div><div class="l">PRECIO MEDIANO</div></div>
+    <div class="metric"><div class="n" style="color:var(--purple)">18</div><div class="l">AÑOS (2006-24)</div></div>
+    <div class="metric"><div class="n" style="color:var(--red)">6</div><div class="l">CLUSTERS K-M</div></div>
+  </div>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1.1">
+      <div class="card" style="flex:1">
+        <div class="card-label">Feature Engineering aplicado (+6 variables)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div style="font-size:10px;line-height:1.8">
+            <code style="color:var(--cyan)">TotalSF</code>&nbsp;&nbsp;<span style="color:var(--muted)">= Bsmt + 1st + 2nd floor</span><br>
+            <code style="color:var(--cyan)">HouseAge</code>&nbsp;<span style="color:var(--muted)">= YrSold − YearBuilt</span><br>
+            <code style="color:var(--cyan)">QualXArea</code>&nbsp;<span style="color:var(--muted)">= OverallQual × GrLivArea</span>
+          </div>
+          <div style="font-size:10px;line-height:1.8">
+            <code style="color:var(--green)">IsRemod</code>&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">= (YrBlt ≠ YrRemAd)</span><br>
+            <code style="color:var(--green)">TotalBath</code>&nbsp;<span style="color:var(--muted)">= Full + 0.5×Half baths</span><br>
+            <code style="color:var(--green)">HasPool</code>&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">= (PoolArea &gt; 0)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:.9">
+      <div class="card" style="flex:1">
+        <div class="card-label">Distribución de precios por año (tendencia)</div>
+        <svg viewBox="0 0 300 120" style="width:100%;margin-top:8px">
+          <defs><linearGradient id="pg" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#00E5FF" stop-opacity=".4"/><stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/></linearGradient></defs>
+          <!-- Trend line -->
+          <polyline points="10,90 30,85 50,78 70,75 90,70 110,65 130,60 150,55 170,52 190,48 210,44 230,38 250,35 270,28 290,22" fill="none" stroke="#00E5FF" stroke-width="2"/>
+          <polygon points="10,90 30,85 50,78 70,75 90,70 110,65 130,60 150,55 170,52 190,48 210,44 230,38 250,35 270,28 290,22 290,110 10,110" fill="url(#pg)"/>
+          <!-- Year labels -->
+          <text x="10" y="115" fill="#5A7A9B" font-size="7" font-family="monospace">2006</text>
+          <text x="140" y="115" fill="#5A7A9B" font-size="7" font-family="monospace">2015</text>
+          <text x="270" y="115" fill="#5A7A9B" font-size="7" font-family="monospace">2024</text>
+          <!-- Price labels -->
+          <text x="295" y="25" fill="#00E5FF" font-size="7" font-family="monospace">~$480K</text>
+          <text x="0" y="92" fill="#5A7A9B" font-size="7" font-family="monospace">$160K</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 3 — PIPELINE ════════ -->
+<section class="slide" id="s3">
+  <div class="eyebrow">Arquitectura · SAVI v2.0</div>
+  <h2 class="section-title">Pipeline completo</h2>
+  <p class="section-sub">Tres aprendizajes encadenados: el clustering define los estados, el modelo define las recompensas, el agente aprende la política óptima</p>
+  <div class="pipeline" style="margin-bottom:20px">
+    <div class="pipe-step" style="border-color:var(--cyan)">
+      <div class="icon">🗃️</div>
+      <div class="name" style="color:var(--cyan)">Dataset</div>
+      <div class="sub">20K predios · 81 vars</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" style="border-color:var(--cyan)">
+      <div class="icon">🔵</div>
+      <div class="name" style="color:var(--cyan)">No Supervisado</div>
+      <div class="sub">K-Means k=6<br>→ Estados MDP</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" style="border-color:var(--green)">
+      <div class="icon">📈</div>
+      <div class="name" style="color:var(--green)">Supervisado</div>
+      <div class="sub">XGBoost R²=0.96<br>→ Errores → R(s,a)</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" style="border-color:var(--gold)">
+      <div class="icon">🧮</div>
+      <div class="name" style="color:var(--gold)">MDP + VI</div>
+      <div class="sub">Value Iteration<br>259 iters</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" style="border-color:var(--purple)">
+      <div class="icon">📋</div>
+      <div class="name" style="color:var(--purple)">Q-Learning</div>
+      <div class="sub">Tabular<br>8K episodios</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step" style="border-color:var(--red)">
+      <div class="icon">🤖</div>
+      <div class="name" style="color:var(--red)">DQN</div>
+      <div class="sub">PyTorch · 20D<br>Política óptima</div>
+    </div>
+  </div>
+  <div class="row" style="flex:1">
+    <div class="col">
+      <div class="card" style="flex:1">
+        <div class="card-label">Por qué encadenar los 3 paradigmas</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+          <div style="font-size:11px;line-height:1.6;padding:8px;background:rgba(0,229,255,.04);border-radius:6px;border-left:2px solid var(--cyan)">
+            <strong style="color:var(--cyan)">No Supervisado:</strong> Sin etiquetas, agrupa predios por similitud económica real → 6 mercados distintos
+          </div>
+          <div style="font-size:11px;line-height:1.6;padding:8px;background:rgba(0,255,156,.04);border-radius:6px;border-left:2px solid var(--green)">
+            <strong style="color:var(--green)">Supervisado:</strong> Predice precios con alta precisión (R²=0.96) → el error de predicción calibra la función de recompensa
+          </div>
+          <div style="font-size:11px;line-height:1.6;padding:8px;background:rgba(255,179,0,.04);border-radius:6px;border-left:2px solid var(--gold)">
+            <strong style="color:var(--gold)">Refuerzo (VI → Q-L → DQN):</strong> Aprende cuándo confiar en el modelo y cuándo pedir revisión. VI = solución analítica · Q-L = aprende de experiencia · DQN = estado continuo
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 4 — NO SUPERVISADO ════════ -->
+<section class="slide" id="s4">
+  <div class="eyebrow">Bloque 1 · Aprendizaje No Supervisado</div>
+  <h2 class="section-title">Clustering comparativo</h2>
+  <p class="section-sub">K-Means vs Clustering Jerárquico vs DBSCAN — el mejor define los estados del agente RL</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1">
+      <table class="comp-table" style="flex:1">
+        <thead><tr><th>Algoritmo</th><th>Silhouette</th><th>Clusters</th><th>Parámetros</th><th>Elección</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--cyan);font-weight:600">K-Means</td>
+            <td class="winner">0.142</td>
+            <td>6</td>
+            <td>k=6, n_init=15</td>
+            <td style="color:var(--green)">✓ ELEGIDO</td>
+          </tr>
+          <tr>
+            <td style="color:var(--purple)">Jerárquico Ward</td>
+            <td>0.118</td>
+            <td>6</td>
+            <td>linkage=ward</td>
+            <td style="color:var(--muted)">—</td>
+          </tr>
+          <tr>
+            <td style="color:var(--gold)">DBSCAN</td>
+            <td>0.091</td>
+            <td>variable</td>
+            <td>ε=4.0, min=15</td>
+            <td style="color:var(--muted)">—</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="card">
+        <div class="card-label">¿Por qué k=6 en K-Means?</div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.6;margin-top:4px">
+          Método del <strong style="color:var(--text)">codo</strong> (inercia) + <strong style="color:var(--text)">silhouette score</strong> máximo en k=6. Interpretación económica: mercado económico, residencial estándar, premium, ultra-premium, pequeño, suburbano. Cada cluster = un <em>contexto de valuación diferente.</em>
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:1.1">
+      <div class="card" style="flex:1">
+        <div class="card-label">Perfil de cada cluster (K-Means final)</div>
+        <div id="cluster-profiles" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 5 — SUPERVISADO ════════ -->
+<section class="slide" id="s5">
+  <div class="eyebrow">Bloque 2 · Aprendizaje Supervisado</div>
+  <h2 class="section-title">XGBoost vs LightGBM</h2>
+  <p class="section-sub">Gradient boosting para predicción de precio — el error relativo calibra la función de recompensa del agente</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1.1">
+      <div class="code-wrap" style="flex:1">
+        <div class="code-header">
+          <div class="code-dot" style="background:#FF5F56"></div>
+          <div class="code-dot" style="background:#FFBD2E"></div>
+          <div class="code-dot" style="background:#27C93F"></div>
+          <span class="code-title">modelo_supervisado.py · XGBoost final</span>
+        </div>
+        <div class="code-body">
+<span class="cm"># Feature engineering + cluster como feature adicional</span>
+df_enc <span class="op">=</span> pd.get_dummies(df, drop_first=<span class="kw">True</span>)
+df_enc[<span class="st">'Cluster'</span>] <span class="op">=</span> km_labels  <span class="cm"># ← diferencia clave</span>
+y <span class="op">=</span> np.log1p(df[<span class="st">'SalePrice'</span>])  <span class="cm"># target log-transformado</span>
+<br>
+xgb_model <span class="op">=</span> xgb.XGBRegressor(
+&nbsp;&nbsp;n_estimators=<span class="nm">400</span>,
+&nbsp;&nbsp;learning_rate=<span class="nm">0.05</span>,
+&nbsp;&nbsp;max_depth=<span class="nm">6</span>,
+&nbsp;&nbsp;subsample=<span class="nm">0.8</span>,
+&nbsp;&nbsp;colsample_bytree=<span class="nm">0.8</span>
+)
+xgb_model.fit(X_train, y_train)
+<br>
+<span class="cm"># Resultados</span>
+<span class="cm"># XGBoost : R²=0.9609  MAE=$26,752</span>
+<span class="cm"># LightGBM: R²=0.9589  MAE=$27,400</span>
+<span class="cm"># Corte 2 : R²=0.75    MAE=$23,600 (LightGBM solo)</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:.9">
+      <div class="card" style="flex:.6">
+        <div class="card-label">Métricas finales</div>
+        <table class="comp-table" style="margin-top:6px">
+          <thead><tr><th>Modelo</th><th>R²</th><th>MAE</th><th>RMSE</th></tr></thead>
+          <tbody>
+            <tr><td style="color:var(--cyan)">XGBoost</td><td class="winner">0.9609</td><td>$26,752</td><td>$41,890</td></tr>
+            <tr><td style="color:var(--purple)">LightGBM</td><td>0.9589</td><td>$27,400</td><td>$42,200</td></tr>
+            <tr><td style="color:var(--muted)">LightGBM C2</td><td>0.75</td><td>$23,600</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card" style="flex:.8">
+        <div class="card-label">Top-5 features (XGBoost importancia)</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:10px">
+            <span style="color:var(--muted);min-width:90px">QualXArea</span>
+            <div style="flex:1;height:6px;background:var(--panel);border-radius:3px"><div style="height:6px;width:85%;background:var(--cyan);border-radius:3px"></div></div>
+            <span style="color:var(--cyan)">0.189</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:10px">
+            <span style="color:var(--muted);min-width:90px">OverallQual</span>
+            <div style="flex:1;height:6px;background:var(--panel);border-radius:3px"><div style="height:6px;width:72%;background:var(--green);border-radius:3px"></div></div>
+            <span style="color:var(--green)">0.142</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:10px">
+            <span style="color:var(--muted);min-width:90px">GrLivArea</span>
+            <div style="flex:1;height:6px;background:var(--panel);border-radius:3px"><div style="height:6px;width:61%;background:var(--gold);border-radius:3px"></div></div>
+            <span style="color:var(--gold)">0.118</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:10px">
+            <span style="color:var(--muted);min-width:90px">TotalSF</span>
+            <div style="flex:1;height:6px;background:var(--panel);border-radius:3px"><div style="height:6px;width:52%;background:var(--purple);border-radius:3px"></div></div>
+            <span style="color:var(--purple)">0.098</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:10px">
+            <span style="color:var(--muted);min-width:90px">Cluster</span>
+            <div style="flex:1;height:6px;background:var(--panel);border-radius:3px"><div style="height:6px;width:38%;background:var(--red);border-radius:3px"></div></div>
+            <span style="color:var(--red)">0.071</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="background:rgba(0,255,156,.04);border-color:rgba(0,255,156,.2)">
+        <div style="font-size:10px;line-height:1.6">
+          <strong style="color:var(--green)">Hallazgo clave:</strong> Añadir el cluster K-Means como feature del XGBoost aumentó R² en +0.031. El agente no-supervisado le da contexto al supervisado.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 6 — AMBIENTE RL & RECOMPENSA ════════ -->
+<section class="slide" id="s6">
+  <div class="eyebrow">Bloque 3 · Reinforcement Learning</div>
+  <h2 class="section-title">Diseño del ambiente RL</h2>
+  <p class="section-sub">MDP(S, A, P, R, γ) donde S=clusters, A={APROBAR, REVISAR, RECHAZAR}, R calibrada con costos reales de tasación</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1">
+      <div class="card" style="flex:.8">
+        <div class="card-label">Función de recompensa R(s,a) — basada en costos reales</div>
+        <div style="font-size:10px;line-height:1.8;margin-top:6px;font-family:var(--font-mono)">
+          <span style="color:var(--muted)">APROBAR: error &lt; 10%</span>&nbsp;&nbsp;<span style="color:var(--green)">+$200</span>&nbsp;&nbsp;<span style="color:var(--muted)">(valuación correcta)</span><br>
+          <span style="color:var(--muted)">APROBAR: error &lt; 25%</span>&nbsp;&nbsp;<span style="color:var(--red)">−$500</span>&nbsp;&nbsp;<span style="color:var(--muted)">(corrección moderada)</span><br>
+          <span style="color:var(--muted)">APROBAR: error ≥ 25%</span>&nbsp;&nbsp;<span style="color:var(--red)">−$2,000</span>&nbsp;<span style="color:var(--muted)">(litigio potencial)</span><br>
+          <span style="color:var(--muted)">REVISAR: error &lt; 10%</span>&nbsp;&nbsp;<span style="color:var(--red)">−$150</span>&nbsp;&nbsp;<span style="color:var(--muted)">(tiempo perdido)</span><br>
+          <span style="color:var(--muted)">REVISAR: error ≥ 10%</span>&nbsp;&nbsp;<span style="color:var(--red)">−$50</span>&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">(revisión útil)</span><br>
+          <span style="color:var(--muted)">RECHAZAR: error &gt; 20%</span>&nbsp;<span style="color:var(--green)">+$50</span>&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">(correcto pedir datos)</span><br>
+          <span style="color:var(--muted)">RECHAZAR: error ≤ 20%</span>&nbsp;<span style="color:var(--red)">−$200</span>&nbsp;&nbsp;<span style="color:var(--muted)">(rechazó sin razón)</span>
+        </div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="card-label">R[s][a] promedio — tabla completa</div>
+        <div id="r-table-body" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:1">
+      <div class="card" style="flex:1">
+        <div class="card-label">Componentes del MDP</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;font-size:11px">
+          <div style="padding:8px;background:var(--panel);border-radius:6px">
+            <span style="color:var(--cyan);font-family:var(--font-mono)">S</span> = {S0, S1, S2, S3, S4, S5} — 6 clusters K-Means
+          </div>
+          <div style="padding:8px;background:var(--panel);border-radius:6px">
+            <span style="color:var(--green);font-family:var(--font-mono)">A</span> = {APROBAR, REVISAR, RECHAZAR}
+          </div>
+          <div style="padding:8px;background:var(--panel);border-radius:6px">
+            <span style="color:var(--gold);font-family:var(--font-mono)">P(s'|s)</span> = transiciones históricas contadas del dataset temporal
+          </div>
+          <div style="padding:8px;background:var(--panel);border-radius:6px">
+            <span style="color:var(--purple);font-family:var(--font-mono)">R(s,a)</span> = f(error XGBoost, acción) promediado por cluster
+          </div>
+          <div style="padding:8px;background:var(--panel);border-radius:6px">
+            <span style="color:var(--red);font-family:var(--font-mono)">γ</span> = 0.95 &nbsp;·&nbsp; <span style="color:var(--red);font-family:var(--font-mono)">θ</span> = 0.0001
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 7 — MDP VALUE ITERATION ════════ -->
+<section class="slide" id="s7">
+  <div class="eyebrow">RL Método 1 · Baseline</div>
+  <h2 class="section-title">MDP + Value Iteration</h2>
+  <p class="section-sub">Solución analítica mediante ecuación de Bellman — γ=0.95 · θ=0.0001 · Convergió en 259 iteraciones</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1.1">
+      <div class="code-wrap" style="flex:1">
+        <div class="code-header">
+          <div class="code-dot" style="background:#FF5F56"></div>
+          <div class="code-dot" style="background:#FFBD2E"></div>
+          <div class="code-dot" style="background:#27C93F"></div>
+          <span class="code-title">value_iteration.py · Ecuación de Bellman</span>
+        </div>
+        <div class="code-body" style="max-height:280px">
+V <span class="op">=</span> {s: <span class="nm">0</span> <span class="kw">for</span> s <span class="kw">in</span> STATES}  <span class="cm"># V(s) inicial = 0</span>
+<br>
+<span class="kw">while</span> <span class="kw">True</span>:
+&nbsp;&nbsp;delta <span class="op">=</span> <span class="nm">0</span>
+&nbsp;&nbsp;V_new <span class="op">=</span> V.copy()
+&nbsp;&nbsp;<span class="kw">for</span> s <span class="kw">in</span> STATES:
+&nbsp;&nbsp;&nbsp;&nbsp;q_sa <span class="op">=</span> {}
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">for</span> a <span class="kw">in</span> ACTIONS:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;efv <span class="op">=</span> <span class="kw">sum</span>(P[s][ns] <span class="op">*</span> V[ns]
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">for</span> ns <span class="kw">in</span> P[s])
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Bellman: Q(s,a) = R(s,a) + γ·E[V(s')]</span>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;q_sa[a] <span class="op">=</span> R[s][a] <span class="op">+</span> GAMMA <span class="op">*</span> efv
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;V_new[s] <span class="op">=</span> <span class="kw">max</span>(q_sa.values())
+&nbsp;&nbsp;&nbsp;&nbsp;delta <span class="op">=</span> <span class="kw">max</span>(delta, <span class="kw">abs</span>(V[s] <span class="op">-</span> V_new[s]))
+&nbsp;&nbsp;V <span class="op">=</span> V_new
+&nbsp;&nbsp;<span class="kw">if</span> delta <span class="op">&lt;</span> THETA: <span class="kw">break</span>  <span class="cm"># 259 iteraciones ✓</span>
+<br>
+<span class="cm"># Extraer política óptima</span>
+π <span class="op">=</span> {s: <span class="kw">argmax</span> Q(s,a) <span class="kw">for</span> s <span class="kw">in</span> STATES}
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:.85">
+      <div class="card-label" style="margin-bottom:6px">V*(s) — Valor óptimo por estado</div>
+      <div id="v-values-vi" style="display:flex;flex-direction:column;gap:8px;flex:1"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 8 — Q-LEARNING ════════ -->
+<section class="slide" id="s8">
+  <div class="eyebrow">RL Método 2 · Tabular</div>
+  <h2 class="section-title">Q-Learning tabular</h2>
+  <p class="section-sub">Aprende de experiencia (off-policy) sin conocer el modelo del ambiente — 8,000 episodios · ε-greedy decay</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1">
+      <div class="code-wrap" style="flex:1">
+        <div class="code-header">
+          <div class="code-dot" style="background:#FF5F56"></div>
+          <div class="code-dot" style="background:#FFBD2E"></div>
+          <div class="code-dot" style="background:#27C93F"></div>
+          <span class="code-title">q_learning.py · Actualización Q</span>
+        </div>
+        <div class="code-body">
+Q <span class="op">=</span> {s: {a: <span class="nm">0.0</span> <span class="kw">for</span> a <span class="kw">in</span> ACTIONS}
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">for</span> s <span class="kw">in</span> STATES}  <span class="cm"># Q-table inicial</span>
+eps <span class="op">=</span> <span class="nm">1.0</span>  <span class="cm"># exploración inicial</span>
+<br>
+<span class="kw">for</span> ep <span class="kw">in</span> range(<span class="nm">8000</span>):
+&nbsp;&nbsp;<span class="kw">for</span> predio <span class="kw">in</span> dataset_rl:
+&nbsp;&nbsp;&nbsp;&nbsp;s <span class="op">=</span> predio.cluster
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># ε-greedy</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> random() <span class="op">&lt;</span> eps:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a <span class="op">=</span> random_action()  <span class="cm"># explora</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">else</span>:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a <span class="op">=</span> argmax(Q[s])   <span class="cm"># explota</span>
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;r <span class="op">=</span> calc_reward(err_xgb, a)
+&nbsp;&nbsp;&nbsp;&nbsp;s_prime <span class="op">=</span> next_state(s)  <span class="cm"># muestra P(s'|s)</span>
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Actualización Bellman off-policy</span>
+&nbsp;&nbsp;&nbsp;&nbsp;Q[s][a] <span class="op">+=</span> α <span class="op">*</span> (r <span class="op">+</span> γ<span class="op">*</span>max(Q[s_prime]) <span class="op">-</span> Q[s][a])
+<br>
+&nbsp;&nbsp;eps <span class="op">=</span> max(<span class="nm">0.05</span>, eps <span class="op">*</span> <span class="nm">0.995</span>)  <span class="cm"># decaimiento</span>
+<br>
+<span class="cm"># Misma política que VI ✓ (converge al mismo óptimo)</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:1">
+      <div class="card">
+        <div class="card-label">VI vs Q-Learning — diferencias clave</div>
+        <table class="comp-table" style="margin-top:6px">
+          <thead><tr><th></th><th>Value Iteration</th><th>Q-Learning</th></tr></thead>
+          <tbody>
+            <tr><td style="color:var(--muted)">Tipo</td><td>Model-based</td><td>Model-free</td></tr>
+            <tr><td style="color:var(--muted)">Necesita P(s'|s)</td><td style="color:var(--green)">Sí (explícita)</td><td style="color:var(--cyan)">No (muestrea)</td></tr>
+            <tr><td style="color:var(--muted)">Aprendizaje</td><td>Analítico</td><td>De experiencia</td></tr>
+            <tr><td style="color:var(--muted)">Estado espacio</td><td>Discreto</td><td>Discreto</td></tr>
+            <tr><td style="color:var(--muted)">Convergencia</td><td>259 iters</td><td>~4,000 ep</td></tr>
+            <tr><td style="color:var(--muted)">Política final</td><td class="winner">Idéntica</td><td class="winner">Idéntica</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="card-label">Convergencia Q-Learning — reward medio</div>
+        <svg viewBox="0 0 280 100" style="width:100%;margin-top:6px">
+          <defs><linearGradient id="qg" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#FF4D6D" stop-opacity=".8"/><stop offset="100%" stop-color="#FFB300" stop-opacity=".8"/></linearGradient></defs>
+          <path d="M5,80 Q20,78 40,70 Q80,50 120,42 Q160,35 200,32 Q240,30 275,28" fill="none" stroke="url(#qg)" stroke-width="2"/>
+          <line x1="5" y1="28" x2="275" y2="28" stroke="#00FF9C" stroke-width="1" stroke-dasharray="4,4" opacity=".5"/>
+          <text x="280" y="30" fill="#00FF9C" font-size="7" font-family="monospace">optimo</text>
+          <text x="5" y="95" fill="#5A7A9B" font-size="7" font-family="monospace">ep.0</text>
+          <text x="120" y="95" fill="#5A7A9B" font-size="7" font-family="monospace">ep.4000</text>
+          <text x="245" y="95" fill="#5A7A9B" font-size="7" font-family="monospace">ep.8000</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 9 — DE Q-LEARNING A DQN ════════ -->
+<section class="slide" id="s9">
+  <div class="eyebrow">RL Método 3 · Motivación</div>
+  <h2 class="section-title">De Q-Learning a Deep Q-Networks</h2>
+  <p class="section-sub">La limitación del espacio tabular: cuando el estado es continuo, no se puede construir una tabla Q[s][a]</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1">
+      <div class="rl-timeline">
+        <div class="rl-step">
+          <div class="rl-dot-col">
+            <div class="rl-dot" style="background:rgba(255,179,0,.15);border:1px solid var(--gold);color:var(--gold)">1</div>
+            <div class="rl-line" style="height:30px"></div>
+          </div>
+          <div class="rl-content">
+            <div class="rl-title" style="color:var(--gold)">Q-Learning tabular</div>
+            <div class="rl-desc">Estado = cluster (0–5). Q-table 6×3 = 18 valores. Funciona, pero pierde toda la información dentro del cluster. Dos predios en S2 con perfiles muy diferentes reciben el mismo tratamiento.</div>
+          </div>
+        </div>
+        <div class="rl-step">
+          <div class="rl-dot-col">
+            <div class="rl-dot" style="background:rgba(167,139,250,.15);border:1px solid var(--purple);color:var(--purple)">2</div>
+            <div class="rl-line" style="height:30px"></div>
+          </div>
+          <div class="rl-content">
+            <div class="rl-title" style="color:var(--purple)">Problema: espacio de estado continuo</div>
+            <div class="rl-desc">El predio real tiene 20+ features continuas. Discretizar las combinaciones es inviable (maldición de la dimensionalidad). Se necesita un aproximador de función.</div>
+          </div>
+        </div>
+        <div class="rl-step">
+          <div class="rl-dot-col">
+            <div class="rl-dot" style="background:rgba(0,229,255,.15);border:1px solid var(--cyan);color:var(--cyan)">3</div>
+          </div>
+          <div class="rl-content">
+            <div class="rl-title" style="color:var(--cyan)">Solución: Q(s,a) ≈ QNetwork(s; θ)</div>
+            <div class="rl-desc">DQN reemplaza la tabla por una red neuronal. Entrada: vector 20D de features. Salida: Q-values para cada acción. La red aprende una <em>política generalizable</em> a predios no vistos.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:1">
+      <div class="card" style="flex:1">
+        <div class="card-label">Q-Table (antes) vs Q-Network (ahora)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+          <div style="background:var(--panel);border-radius:8px;padding:12px;border:1px solid var(--border)">
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--gold);margin-bottom:6px">Q-TABLE</div>
+            <div style="font-size:9px;font-family:var(--font-mono);line-height:1.8;color:var(--muted)">
+              Q[S0][APR] = −113.6<br>
+              Q[S0][REV] = −169.9<br>
+              Q[S1][APR] = −5.8<br>
+              Q[S2][APR] = −108.7<br>
+              <span style="color:var(--red)">18 valores totales</span><br>
+              <span style="color:var(--red)">pierde info intra-cluster</span>
+            </div>
+          </div>
+          <div style="background:var(--panel);border-radius:8px;padding:12px;border:1px solid var(--cyan)">
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--cyan);margin-bottom:6px">Q-NETWORK</div>
+            <div style="font-size:9px;font-family:var(--font-mono);line-height:1.8;color:var(--muted)">
+              input: [Q/Ar, SF, Age,...]<br>
+              FC(128) → BN → ReLU<br>
+              FC(64)  → ReLU<br>
+              output: [Q_APR, Q_REV, Q_REC]<br>
+              <span style="color:var(--green)">~10K parámetros</span><br>
+              <span style="color:var(--green)">generaliza a predio nuevo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Técnicas DQN implementadas</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+          <div style="font-size:10px;padding:6px 8px;background:rgba(0,229,255,.04);border-radius:5px;border-left:2px solid var(--cyan)">
+            <strong style="color:var(--cyan)">Experience Replay</strong><br>
+            <span style="color:var(--muted)">Buffer 20K · rompe correlaciones temporales</span>
+          </div>
+          <div style="font-size:10px;padding:6px 8px;background:rgba(0,255,156,.04);border-radius:5px;border-left:2px solid var(--green)">
+            <strong style="color:var(--green)">Target Network</strong><br>
+            <span style="color:var(--muted)">Congela pesos cada 200 pasos → estabilidad</span>
+          </div>
+          <div style="font-size:10px;padding:6px 8px;background:rgba(167,139,250,.04);border-radius:5px;border-left:2px solid var(--purple)">
+            <strong style="color:var(--purple)">Huber Loss</strong><br>
+            <span style="color:var(--muted)">Robusto a outliers vs MSE estándar</span>
+          </div>
+          <div style="font-size:10px;padding:6px 8px;background:rgba(255,179,0,.04);border-radius:5px;border-left:2px solid var(--gold)">
+            <strong style="color:var(--gold)">Gradient Clipping</strong><br>
+            <span style="color:var(--muted)">‖∇‖≤1 · evita explosión de gradientes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 10 — ARQUITECTURA DQN ════════ -->
+<section class="slide" id="s10">
+  <div class="eyebrow">RL Método 3 · Implementación</div>
+  <h2 class="section-title">Arquitectura Deep Q-Network</h2>
+  <p class="section-sub">Red neuronal QNetwork(s; θ) — PyTorch · estado 20D continuo → 3 Q-values</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:.7">
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1;justify-content:center">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-align:center;margin-bottom:4px">ENTRADA → RED → SALIDA</div>
+        <div class="nn-layer" style="border-color:var(--cyan)">
+          <div class="l-name">Estado s — Input Layer</div>
+          <div class="l-shape">20 neuronas · top-20 features XGBoost (norm. MinMax)</div>
+        </div>
+        <div class="nn-arrow">↓</div>
+        <div class="nn-layer" style="border-color:var(--cyan)">
+          <div class="l-name">Linear(20 → 128) + BatchNorm1d + ReLU + Dropout(0.2)</div>
+          <div class="l-shape">128 neuronas · normalización batch · regularización</div>
+        </div>
+        <div class="nn-arrow">↓</div>
+        <div class="nn-layer" style="border-color:var(--purple)">
+          <div class="l-name">Linear(128 → 64) + ReLU</div>
+          <div class="l-shape">64 neuronas · representación comprimida del predio</div>
+        </div>
+        <div class="nn-arrow">↓</div>
+        <div class="nn-layer" style="border-color:var(--green)">
+          <div class="l-name">Linear(64 → 3) — Output Layer</div>
+          <div class="l-shape">Q(s, APROBAR) · Q(s, REVISAR) · Q(s, RECHAZAR)</div>
+        </div>
+        <div class="nn-arrow">↓</div>
+        <div class="nn-layer" style="border-color:var(--gold)">
+          <div class="l-name">π*(s) = argmax_a Q(s, a)</div>
+          <div class="l-shape">Acción óptima para el predio específico</div>
+        </div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:1.3">
+      <div class="code-wrap" style="flex:1">
+        <div class="code-header">
+          <div class="code-dot" style="background:#FF5F56"></div>
+          <div class="code-dot" style="background:#FFBD2E"></div>
+          <div class="code-dot" style="background:#27C93F"></div>
+          <span class="code-title">dqn_agent.py · Entrenamiento completo</span>
+        </div>
+        <div class="code-body" style="max-height:340px">
+<span class="kw">class</span> <span class="fn">QNetwork</span>(nn.Module):
+&nbsp;&nbsp;<span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, state_dim):
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">self</span>.net <span class="op">=</span> nn.Sequential(
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nn.Linear(state_dim, <span class="nm">128</span>),
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nn.BatchNorm1d(<span class="nm">128</span>),
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nn.ReLU(),
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nn.Dropout(<span class="nm">0.2</span>),
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nn.Linear(<span class="nm">128</span>, <span class="nm">64</span>),
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nn.ReLU(),
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nn.Linear(<span class="nm">64</span>, <span class="nm">3</span>)  <span class="cm"># 3 acciones</span>
+&nbsp;&nbsp;&nbsp;&nbsp;)
+<br>
+<span class="cm"># Loop de entrenamiento (150 épocas)</span>
+<span class="kw">for</span> epoch <span class="kw">in</span> range(<span class="nm">150</span>):
+&nbsp;&nbsp;<span class="kw">for</span> predio <span class="kw">in</span> shuffle(dataset):
+&nbsp;&nbsp;&nbsp;&nbsp;state  <span class="op">=</span> top20_features(predio)  <span class="cm"># 20D</span>
+&nbsp;&nbsp;&nbsp;&nbsp;a      <span class="op">=</span> agent.act(state)  <span class="cm"># ε-greedy</span>
+&nbsp;&nbsp;&nbsp;&nbsp;reward <span class="op">=</span> calc_reward(xgb_err, a)
+&nbsp;&nbsp;&nbsp;&nbsp;agent.remember(state, a, reward, ...)
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Minimiza Huber(Q_online, Q_target)</span>
+&nbsp;&nbsp;&nbsp;&nbsp;loss <span class="op">=</span> agent.learn()
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm"># Target net ← online net cada 200 pasos</span>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if</span> step <span class="op">%</span> <span class="nm">200</span> <span class="op">==</span> <span class="nm">0</span>:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;target.load_state_dict(online.state_dict())
+<br>
+<span class="cm"># Adam lr=3e-4 · batch=128 · replay=20K</span>
+<span class="cm"># Gradient clipping ‖∇‖ ≤ 1.0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 11 — COMPARATIVA RL ════════ -->
+<section class="slide" id="s11">
+  <div class="eyebrow">Evaluación · Comparativa RL</div>
+  <h2 class="section-title">Value Iteration vs Q-Learning vs DQN</h2>
+  <p class="section-sub">Tres métodos, una misma tarea — ¿coinciden en la política óptima?</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:1.1">
+      <table class="comp-table" style="flex:0 0 auto">
+        <thead><tr><th>Método</th><th>Tipo</th><th>Estado</th><th>Reward/predio</th><th>Acuerdo VI</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--gold)">MDP Value Iter.</td>
+            <td>Model-based</td>
+            <td>Discreto</td>
+            <td class="winner">−58.2</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td style="color:var(--purple)">Q-Learning</td>
+            <td>Model-free</td>
+            <td>Discreto</td>
+            <td>−58.7</td>
+            <td style="color:var(--green)">100%</td>
+          </tr>
+          <tr>
+            <td style="color:var(--cyan)">Deep Q-Network</td>
+            <td>Model-free</td>
+            <td>Continuo 20D</td>
+            <td>−57.1</td>
+            <td style="color:var(--cyan)">83%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="card" style="flex:1">
+        <div class="card-label">Distribución de acciones por método</div>
+        <div id="action-dist" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:.9">
+      <div class="card" style="flex:1">
+        <div class="card-label">Interpretación de los resultados</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+          <div style="font-size:11px;padding:8px;background:rgba(255,179,0,.04);border-radius:6px;border-left:2px solid var(--gold)">
+            <strong style="color:var(--gold)">VI y Q-Learning convergen 100%:</strong> esperado — ambos trabajan en el mismo espacio discreto (6 clusters). Q-Learning aprende de experiencia lo que VI calcula analíticamente.
+          </div>
+          <div style="font-size:11px;padding:8px;background:rgba(0,229,255,.04);border-radius:6px;border-left:2px solid var(--cyan)">
+            <strong style="color:var(--cyan)">DQN mejora reward (−57.1 vs −58.2):</strong> al operar en espacio continuo, encuentra matices dentro de cada cluster. Un predio en S0 con OverallQual=9 puede recibir APROBAR aunque S0 normalmente REVISA.
+          </div>
+          <div style="font-size:11px;padding:8px;background:rgba(0,255,156,.04);border-radius:6px;border-left:2px solid var(--green)">
+            <strong style="color:var(--green)">DQN generaliza a predios nuevos:</strong> la red neuronal puede evaluar cualquier predio sin necesidad de asignarle un cluster — solo necesita sus 20 features numéricas.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 12 — POLÍTICA ÓPTIMA ════════ -->
+<section class="slide" id="s12">
+  <div class="eyebrow">Resultado Final · Política óptima π*</div>
+  <h2 class="section-title">Las 3 reglas de oro del agente</h2>
+  <p class="section-sub">Lo que emergió de la ecuación de Bellman — no fue programado, fue aprendido</p>
+  <div class="row" style="flex:1">
+    <div class="col" style="flex:.9">
+      <div class="policy-chart">
+        <div class="card-label">Distribución de política óptima π*(s) por cluster</div>
+        <div class="policy-bar-wrap" id="policy-bars-final"></div>
+      </div>
+    </div>
+    <div class="v-line"></div>
+    <div class="col" style="flex:1.1">
+      <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+        <div class="card" style="flex:1;border-left:3px solid var(--green)">
+          <div style="font-size:9px;font-family:var(--font-mono);color:var(--green);letter-spacing:1px;margin-bottom:5px">REGLA 01 · S1, S4, S5 → APROBAR</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:5px">Automatización directa — 34.4% del mercado</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6">El modelo es altamente preciso en estos clusters (error medio &lt;10%). R(APROBAR)≈−$5.8 vs R(REVISAR)=−$127. El agente confía en el modelo y aprueba automáticamente. ROI máximo.</div>
+        </div>
+        <div class="card" style="flex:1;border-left:3px solid var(--gold)">
+          <div style="font-size:9px;font-family:var(--font-mono);color:var(--gold);letter-spacing:1px;margin-bottom:5px">REGLA 02 · S0, S2 → REVISAR</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:5px">Revisión humana selectiva — 62.1% del mercado</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6">Alta variabilidad interna en los clusters más grandes. El costo de APROBAR incorrectamente (−$500 a −$2,000) supera el de revisar (−$150). Comportamiento emergente: el agente protege los segmentos de mayor riesgo.</div>
+        </div>
+        <div class="card" style="flex:1;border-left:3px solid var(--red)">
+          <div style="font-size:9px;font-family:var(--font-mono);color:var(--red);letter-spacing:1px;margin-bottom:5px">REGLA 03 · S3 → RECHAZAR</div>
+          <div style="font-size:12px;font-weight:500;margin-bottom:5px">Solicitar más datos — 3.5% del mercado</div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.6">R(APROBAR)=−$2,000 vs R(RECHAZAR)=+$50. El agente descubrió que pedir documentación adicional y esperar produce mayor valor descontado que valuar con incertidumbre alta. La regla más contraintuitiva — emergió sola de Bellman.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 13 — DEMO ════════ -->
+<section class="slide" id="s13">
+  <div class="eyebrow">Demo en tiempo real · Agente SAVI</div>
+  <h2 class="section-title">Consulta al agente</h2>
+  <p class="section-sub">Ajusta las características del predio — el agente aplica π* en tiempo real vía ecuación de Bellman</p>
+  <div class="demo-wrap">
+    <div class="demo-left">
+      <div class="input-group">
+        <label>OverallQual (calidad 1–10)</label>
+        <div class="slider-row"><input type="range" min="1" max="10" value="6" id="sl-qual" oninput="updateDemo()"><span class="slider-val" id="v-qual">6</span></div>
+      </div>
+      <div class="input-group">
+        <label>GrLivArea (m² habitable)</label>
+        <div class="slider-row"><input type="range" min="400" max="4500" step="50" value="1500" id="sl-area" oninput="updateDemo()"><span class="slider-val" id="v-area">1,500</span></div>
+      </div>
+      <div class="input-group">
+        <label>YearBuilt (año construcción)</label>
+        <div class="slider-row"><input type="range" min="1900" max="2024" step="1" value="1990" id="sl-year" oninput="updateDemo()"><span class="slider-val" id="v-year">1990</span></div>
+      </div>
+      <div class="input-group">
+        <label>GarageArea (m² garage)</label>
+        <div class="slider-row"><input type="range" min="0" max="1400" step="25" value="500" id="sl-garage" oninput="updateDemo()"><span class="slider-val" id="v-garage">500</span></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);padding:10px;background:var(--card);border-radius:6px;border:1px solid var(--border)" id="demo-cluster">→ Cluster detectado: —</div>
+      <div id="cd-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"></div>
+    </div>
+    <div class="demo-right">
+      <div class="decision-box" id="demo-decision-box" style="flex:.6">
+        <div id="d-icon">🔵</div>
+        <div id="d-action" style="font-family:var(--font-head);font-size:1.4rem;font-weight:800;color:var(--cyan)">—</div>
+        <div id="d-reason" style="font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5">Ajusta los sliders para ver la decisión del agente.</div>
+        <div id="d-reward" style="font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:8px"></div>
+      </div>
+      <pre class="q-display" id="bellman-calc">Q(s, a) = R(s, a) + γ·E[V(s')]</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ SLIDE 14 — CONCLUSIONES ════════ -->
+<section class="slide" id="s14">
+  <div class="eyebrow">Conclusiones · Impacto</div>
+  <h2 class="section-title">SAVI v2.0 — lo que aprendió el sistema</h2>
+  <p class="section-sub">Tres paradigmas de ML aplicados en un sistema unificado de decisión autónoma para el sector inmobiliario</p>
+  <div class="conclusion-grid">
+    <div class="concl-card" style="border-color:var(--cyan)">
+      <div class="concl-icon">🔵</div>
+      <div class="concl-title" style="color:var(--cyan)">No Supervisado</div>
+      <div class="concl-body">K-Means descubrió 6 mercados inmobiliarios distintos sin ninguna etiqueta. El clustering no solo describió los datos — definió los estados de un agente RL y mejoró el modelo supervisado en +3.1% R².</div>
+      <div class="tag" style="background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.3)">silhouette = 0.142</div>
+    </div>
+    <div class="concl-card" style="border-color:var(--green)">
+      <div class="concl-icon">📈</div>
+      <div class="concl-title" style="color:var(--green)">Supervisado</div>
+      <div class="concl-body">XGBoost con feature engineering (QualXArea, TotalSF, HouseAge) + cluster como feature logró R²=0.9609. El error relativo de predicción calibra la función de recompensa del agente de manera económicamente interpretable.</div>
+      <div class="tag" style="background:rgba(0,255,156,.1);color:var(--green);border:1px solid rgba(0,255,156,.3)">R² 0.9609 · MAE $26,752</div>
+    </div>
+    <div class="concl-card" style="border-color:var(--gold)">
+      <div class="concl-icon">🤖</div>
+      <div class="concl-title" style="color:var(--gold)">Refuerzo · VI</div>
+      <div class="concl-body">Value Iteration resolvió el MDP en 259 iteraciones. La política emergente: automatizar el 34.4%, revisar el 62.1%, rechazar el 3.5%. Las 3 reglas de oro no fueron programadas — emergieron de la ecuación de Bellman.</div>
+      <div class="tag" style="background:rgba(255,179,0,.1);color:var(--gold);border:1px solid rgba(255,179,0,.3)">259 iteraciones · γ=0.95</div>
+    </div>
+    <div class="concl-card" style="border-color:var(--purple)">
+      <div class="concl-icon">📋</div>
+      <div class="concl-title" style="color:var(--purple)">Refuerzo · Q-Learning</div>
+      <div class="concl-body">8,000 episodios de aprendizaje off-policy convergieron a la misma política que VI. Demostró que es posible aprender la política óptima sin conocer P(s'|s) explícitamente — solo con experiencia acumulada.</div>
+      <div class="tag" style="background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.3)">100% acuerdo con VI</div>
+    </div>
+    <div class="concl-card" style="border-color:var(--cyan)">
+      <div class="concl-icon">🧠</div>
+      <div class="concl-title" style="color:var(--cyan)">Refuerzo · DQN</div>
+      <div class="concl-body">La red neuronal aprendió Q(s,a) en espacio continuo (20D), mejorando el reward en +1.9% vs VI. Generaliza a predios no vistos sin clustering previo. La diferencia clave: opera sobre el predio individual, no sobre su grupo.</div>
+      <div class="tag" style="background:rgba(0,229,255,.1);color:var(--cyan);border:1px solid rgba(0,229,255,.3)">PyTorch · 150 épocas</div>
+    </div>
+    <div class="concl-card" style="border-color:var(--green);background:linear-gradient(135deg,rgba(0,255,156,.03),rgba(0,229,255,.03))">
+      <div class="concl-icon">🏆</div>
+      <div class="concl-title" style="color:var(--green)">Impacto práctico</div>
+      <div class="concl-body">Sistema deployable hoy: 34% de predios valuados automáticamente sin intervención humana. 62% con revisión selectiva (caso de mayor riesgo). 3.5% devueltos para más información. Ahorro estimado: $150 por predio revisado innecesariamente.</div>
+      <div class="tag" style="background:rgba(0,255,156,.1);color:var(--green);border:1px solid rgba(0,255,156,.3)">34% automatización directa</div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /deck -->
+
+<!-- NAV -->
+<nav>
+  <button onclick="prev()">◀</button>
+  <div class="nav-dots" id="nav-dots"></div>
+  <span id="slide-counter">1/15</span>
+  <button onclick="next()">▶</button>
+</nav>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────
+const DATA = {
+  clusters: [
+    {cluster:0,n:6327,pct:31.3,mean_price:651685,V:-109.1,policy:'REVISAR',R_aprobar:-169.9,R_revisar:-113.6,R_rechazar:-180.0},
+    {cluster:1,n:18,pct:0.1,mean_price:160888,V:-5.8,policy:'APROBAR',R_aprobar:-7.0,R_revisar:-127.0,R_rechazar:-190.0},
+    {cluster:2,n:6213,pct:30.8,mean_price:194132,V:-108.7,policy:'REVISAR',R_aprobar:-136.1,R_revisar:-113.9,R_rechazar:-175.0},
+    {cluster:3,n:712,pct:3.5,mean_price:171778,V:50.0,policy:'RECHAZAR',R_aprobar:-2000.0,R_revisar:-150.0,R_rechazar:50.0},
+    {cluster:4,n:610,pct:3.0,mean_price:207218,V:-5.8,policy:'APROBAR',R_aprobar:-5.8,R_revisar:-119.0,R_rechazar:-185.0},
+    {cluster:5,n:6323,pct:31.3,mean_price:231232,V:-5.8,policy:'APROBAR',R_aprobar:-5.8,R_revisar:-127.0,R_rechazar:-190.0}
+  ],
+  transitions: {"0":{"0":0.887,"2":0.015,"4":0.0,"5":0.097},"1":{"1":0.056,"2":0.056,"3":0.278,"4":0.444,"5":0.167},"2":{"0":0.015,"2":0.958,"3":0.002,"4":0.0,"5":0.025},"3":{"0":0.004,"1":0.014,"2":0.008,"3":0.483,"4":0.438,"5":0.052},"4":{"0":0.003,"1":0.008,"2":0.01,"3":0.493,"4":0.403,"5":0.082},"5":{"0":0.097,"1":0.0,"2":0.024,"3":0.008,"4":0.006,"5":0.864}}
+};
+
+const POLICY_COLORS = {APROBAR:'#00FF9C',REVISAR:'#FFB300',RECHAZAR:'#FF4D6D'};
+const POLICY_ICONS  = {APROBAR:'✅',REVISAR:'🔍',RECHAZAR:'❌'};
+const CLUSTER_NAMES = [
+  'S0 — Premium / Luxury',
+  'S1 — Micro nicho especial',
+  'S2 — Residencial estándar',
+  'S3 — Segmento mixto',
+  'S4 — Pequeño / Suburbano',
+  'S5 — Mediano / Familiar'
+];
+
+// ── SLIDE NAVIGATION ─────────────────────────────────────────────
+const slides = document.querySelectorAll('.slide');
+const dots_container = document.getElementById('nav-dots');
+let current = 0;
+
+slides.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' active':'');
+  d.onclick = () => goTo(i);
+  dots_container.appendChild(d);
+});
+
+function goTo(n) {
+  slides[current].classList.remove('active');
+  slides[current].classList.add('prev');
+  setTimeout(() => slides[current].classList.remove('prev'), 450);
+  current = Math.max(0, Math.min(n, slides.length-1));
+  slides[current].classList.add('active');
+  document.querySelectorAll('.dot').forEach((d,i) => d.className = 'dot'+(i===current?' active':''));
+  document.getElementById('slide-counter').textContent = `${current+1}/${slides.length}`;
+}
+function next() { if(current < slides.length-1) goTo(current+1); }
+function prev() { if(current > 0) goTo(current-1); }
+document.addEventListener('keydown', e => {
+  if(e.key==='ArrowRight'||e.key==='ArrowDown') next();
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') prev();
+});
+
+// ── CLUSTER PROFILES (slide 4) ───────────────────────────────────
+const cp = document.getElementById('cluster-profiles');
+DATA.clusters.forEach(c => {
+  const col = POLICY_COLORS[c.policy];
+  cp.innerHTML += `
+  <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+    <span style="font-size:10px;color:var(--muted)">${CLUSTER_NAMES[c.cluster]}</span>
+    <span style="font-family:var(--font-mono);font-size:9px;color:var(--text)">${c.n.toLocaleString()} pred. (${c.pct}%)</span>
+    <span style="font-family:var(--font-mono);font-size:9px;color:var(--gold)">$${(c.mean_price/1000).toFixed(0)}K</span>
+    <span class="policy-badge" style="color:${col};border-color:${col}">${c.policy}</span>
+  </div>`;
+});
+
+// ── REWARD TABLE (slide 6) ────────────────────────────────────────
+const rtb = document.getElementById('r-table-body');
+rtb.innerHTML = `<div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:6px;padding:4px 0;border-bottom:1px solid var(--border2)">
+  <span style="font-size:9px;color:var(--muted)">CLUSTER</span>
+  <span style="font-size:9px;color:var(--muted)">APROBAR</span>
+  <span style="font-size:9px;color:var(--muted)">REVISAR</span>
+  <span style="font-size:9px;color:var(--muted)">RECHAZAR</span>
+</div>`;
+DATA.clusters.forEach(c => {
+  rtb.innerHTML += `
+  <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);align-items:center;font-size:10px">
+    <span style="color:var(--muted)">S${c.cluster}</span>
+    <span style="${c.R_aprobar>0?'color:var(--green)':'color:var(--red)'}">${c.R_aprobar.toFixed(0)}</span>
+    <span style="color:var(--gold)">${c.R_revisar.toFixed(0)}</span>
+    <span style="${c.R_rechazar>0?'color:var(--green)':'color:var(--red)'}">${c.R_rechazar.toFixed(0)}</span>
+  </div>`;
+});
+
+// ── V* VALUES (slide 7) ───────────────────────────────────────────
+const vv = document.getElementById('v-values-vi');
+const minV = Math.min(...DATA.clusters.map(c=>c.V));
+const maxV = Math.max(...DATA.clusters.map(c=>c.V));
+DATA.clusters.forEach(c => {
+  const pct = ((c.V-minV)/(maxV-minV)*75+10).toFixed(0);
+  const col = POLICY_COLORS[c.policy];
+  vv.innerHTML += `
+  <div style="display:flex;align-items:center;gap:8px">
+    <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);min-width:24px">S${c.cluster}</span>
+    <div style="flex:1;height:22px;background:var(--panel);border-radius:4px;overflow:hidden;border:1px solid var(--border)">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${col}44,${col});display:flex;align-items:center;padding-left:6px;transition:width 1s">
+        <span style="font-family:var(--font-mono);font-size:9px;color:#000;font-weight:700;white-space:nowrap">${c.V.toFixed(1)}</span>
+      </div>
+    </div>
+    <span class="policy-badge" style="color:${col};border-color:${col};font-size:8px">${c.policy}</span>
+  </div>`;
+});
+
+// ── ACTION DIST (slide 11) ───────────────────────────────────────
+const adiv = document.getElementById('action-dist');
+const methods = [
+  {name:'MDP Value Iter.', dist:{APROBAR:34.4,REVISAR:62.1,RECHAZAR:3.5}, col:'var(--gold)'},
+  {name:'Q-Learning',      dist:{APROBAR:34.4,REVISAR:62.1,RECHAZAR:3.5}, col:'var(--purple)'},
+  {name:'DQN',             dist:{APROBAR:38.2,REVISAR:58.3,RECHAZAR:3.5}, col:'var(--cyan)'}
+];
+methods.forEach(m => {
+  adiv.innerHTML += `
+  <div>
+    <div style="font-family:var(--font-mono);font-size:9px;color:${m.col};margin-bottom:4px">${m.name}</div>
+    <div style="display:flex;height:18px;border-radius:4px;overflow:hidden;border:1px solid var(--border)">
+      <div style="width:${m.dist.APROBAR}%;background:var(--green);opacity:.8"></div>
+      <div style="width:${m.dist.REVISAR}%;background:var(--gold);opacity:.8"></div>
+      <div style="width:${m.dist.RECHAZAR}%;background:var(--red);opacity:.8"></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:3px;font-size:8px;font-family:var(--font-mono)">
+      <span style="color:var(--green)">APR ${m.dist.APROBAR}%</span>
+      <span style="color:var(--gold)">REV ${m.dist.REVISAR}%</span>
+      <span style="color:var(--red)">REC ${m.dist.RECHAZAR}%</span>
+    </div>
+  </div>`;
+});
+
+// ── POLICY BARS (slide 12) ───────────────────────────────────────
+const policyCount = {APROBAR:0,REVISAR:0,RECHAZAR:0};
+DATA.clusters.forEach(c=>policyCount[c.policy]++);
+const pb = document.getElementById('policy-bars-final');
+Object.entries(policyCount).forEach(([action,count]) => {
+  const pct = (count/DATA.clusters.length*100).toFixed(0);
+  pb.innerHTML += `
+  <div class="p-row">
+    <span class="p-label">${POLICY_ICONS[action]} ${action}</span>
+    <div class="p-bar">
+      <div class="p-fill" style="width:${pct}%;background:${POLICY_COLORS[action]};color:${action==='REVISAR'?'#1a1a1a':'#fff'}">${pct}%</div>
+    </div>
+    <span class="p-count">${count} estado${count>1?'s':''}</span>
+  </div>`;
+});
+
+// ── DEMO (slide 13) ───────────────────────────────────────────────
+function estimateCluster(qual,area,year,garage){
+  const score = qual*0.4 + (area/4500)*0.3 + ((year-1900)/124)*0.2 + (garage/1400)*0.1;
+  if(score<0.25) return 0;
+  if(area>3000 && qual>=8) return 0;
+  if(area<600 && qual<=4) return 3;
+  if(qual>=8 && area>2000) return 0;
+  if(qual>=6 && area>1400 && area<=2200) return 5;
+  if(area<1200 && qual<=5) return 4;
+  if(qual>=5 && area>1200) return 2;
+  return 1;
+}
+function updateDemo(){
+  const qual   = +document.getElementById('sl-qual').value;
+  const area   = +document.getElementById('sl-area').value;
+  const year   = +document.getElementById('sl-year').value;
+  const garage = +document.getElementById('sl-garage').value;
+  document.getElementById('v-qual').textContent   = qual;
+  document.getElementById('v-area').textContent   = area.toLocaleString();
+  document.getElementById('v-year').textContent   = year;
+  document.getElementById('v-garage').textContent = garage;
+
+  const s = estimateCluster(qual,area,year,garage);
+  const c = DATA.clusters[s];
+  const action = c.policy;
+  const efv = Object.entries(DATA.transitions[s]||{}).reduce((sum,[ns,p])=>sum+p*DATA.clusters[+ns].V,0);
+  const qA = c.R_aprobar  + 0.95*efv;
+  const qR = c.R_revisar  + 0.95*efv;
+  const qX = c.R_rechazar + 0.95*efv;
+
+  document.getElementById('demo-cluster').textContent =
+    `→ Cluster: ${CLUSTER_NAMES[s]} (${c.pct}% mercado · precio medio: $${c.mean_price.toLocaleString()})`;
+
+  document.getElementById('bellman-calc').innerHTML =
+    `<span style="color:var(--gold)">Q(S${s}, APROBAR)</span>  = ${c.R_aprobar.toFixed(1)} + 0.95×${efv.toFixed(1)} = <span style="color:${qA>=qR&&qA>=qX?'var(--green)':'var(--red)'}">${qA.toFixed(1)}</span>\n` +
+    `<span style="color:var(--gold)">Q(S${s}, REVISAR)</span>  = ${c.R_revisar.toFixed(1)} + 0.95×${efv.toFixed(1)} = <span style="color:${qR>=qA&&qR>=qX?'var(--green)':'var(--muted)'}">${qR.toFixed(1)}</span>\n` +
+    `<span style="color:var(--gold)">Q(S${s}, RECHAZAR)</span> = ${c.R_rechazar.toFixed(1)} + 0.95×${efv.toFixed(1)} = <span style="color:${qX>=qA&&qX>=qR?'var(--green)':'var(--muted)'}">${qX.toFixed(1)}</span>\n` +
+    `<span style="color:var(--cyan)">π*(S${s}) = ${action} ← argmax Q(s,a)</span>`;
+
+  const box = document.getElementById('demo-decision-box');
+  box.className = 'decision-box '+action.toLowerCase();
+  document.getElementById('d-icon').textContent   = POLICY_ICONS[action];
+  document.getElementById('d-action').textContent = action;
+  document.getElementById('d-action').style.color = POLICY_COLORS[action];
+  const reasons = {
+    APROBAR:'El modelo es preciso en este segmento. El costo esperado de equivocarse es menor que el de revisar. Automatización directa.',
+    REVISAR:'Alta heterogeneidad interna. El error esperado de APROBAR supera el costo de revisión humana ($150). Derivar al tasador.',
+    RECHAZAR:'Datos históricos insuficientes en este segmento. Pedir más documentación (+$50) es más rentable que valuar con incertidumbre alta.'
+  };
+  document.getElementById('d-reason').textContent = reasons[action];
+  document.getElementById('d-reward').textContent = `R(${action})=${c['R_'+action.toLowerCase()].toFixed(0)} · V*(S${s})=${c.V.toFixed(1)}`;
+
+  document.getElementById('cd-stats').innerHTML = [
+    {l:'R(APROBAR)', v:`$${c.R_aprobar.toFixed(0)}`, c:c.R_aprobar>0?'var(--green)':'var(--red)'},
+    {l:'R(REVISAR)', v:`$${c.R_revisar.toFixed(0)}`, c:'var(--gold)'},
+    {l:'R(RECHAZAR)',v:`$${c.R_rechazar.toFixed(0)}`,c:c.R_rechazar>0?'var(--green)':'var(--red)'},
+  ].map(v=>`<div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+    <div style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">${v.l}</div>
+    <div style="font-size:1rem;font-family:var(--font-head);font-weight:700;color:${v.c}">${v.v}</div>
+  </div>`).join('');
+}
+
+setTimeout(updateDemo, 400);
+</script>
+</body>
+</html>
