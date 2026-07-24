@@ -170,7 +170,6 @@ The SAVI script searches for `ames_combined_2006_2024.csv` in this order:
 AMES_DATASET_PATH
 ./ames_combined_2006_2024.csv
 ./data/ames_combined_2006_2024.csv
-C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv
 ```
 
 Then run the v2 pipeline:
