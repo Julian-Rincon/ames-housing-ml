@@ -8,10 +8,32 @@
 [![Reinforcement Learning](https://img.shields.io/badge/AI-Markov_Decision_Process-purple.svg)]()
 [![PyTorch](https://img.shields.io/badge/RL-PyTorch_DQN-EE4C2C.svg)](https://pytorch.org/)
 [![GitHub Pages](https://img.shields.io/badge/Demo-GitHub_Pages-success.svg)](https://julian-rincon.github.io/ames-housing-ml/SAVI_v2_ParcialFinal.html)
+[![AWS](https://img.shields.io/badge/Cloud-AWS_S3·Lambda·EC2·SageMaker-FF9900.svg)](cloud/README.md)
+[![SAVI Cloud CI](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml/badge.svg)](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml)
 
 > **Interactive demo:** [explore the SAVI v2 full RL pipeline](https://julian-rincon.github.io/ames-housing-ml/SAVI_v2_ParcialFinal.html)
 >
 > **v1 demo:** [MDP Value Iteration presentation](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
+
+---
+
+## SAVI v3 — Cloud Native on AWS (new)
+
+The v2 monolith now runs as an **event-driven AWS pipeline** ([`cloud/`](cloud/README.md)):
+uploading a dataset to S3 triggers a Lambda that starts a self-terminating **EC2 CPU engine**
+(K-Means, XGBoost, Value Iteration, Q-Learning); its `_SUCCESS.json` triggers a second Lambda
+that launches a **SageMaker Training Job** (Double DQN + VI/QL/DQN consensus) that writes the
+final model and per-parcel decisions back to S3.
+
+v3 also replaces the combined CSV with **real Ames, Iowa data** joined by parcel ID
+(De Cock 2006-2010 sales + City Assessor 2024 roll + FHFA house price index), fixes three
+bugs that prevented v2 from running, and implements a true Double DQN.
+
+> **Data note on v2 metrics.** An audit found that 93 % of the rows in
+> `ames_combined_2006_2024.csv` were 2024 assessor records padded with 61 constant columns, and
+> their `SalePrice` was the 2024 *assessed* value, not a sale. The v2 R²=0.96 below reflects that
+> artifact. With real sales and honest 5-fold out-of-fold validation, v3 reaches
+> **R²(log)=0.921, MAPE 7.8 %** — see [`cloud/README.md`](cloud/README.md).
 
 ---
 
@@ -36,6 +58,7 @@ This repository preserves the original exploratory analysis, clustering, and sup
 | ML foundation | Unsupervised segmentation and predictive modeling | `notebooks/01` to `notebooks/08` |
 | SAVI v1 decision layer | MDP Value Iteration agent | `MDP_Ames_SAVI.py`, `MDP_Ames_Presentacion.html` |
 | SAVI v2 full RL pipeline | Q-Learning + DQN + consensus policy + IEEE paper | `SAVI_v2_ParcialFinal.py`, `SAVI_v2_ParcialFinal.html`, `SAVI_v2_ArticuloIEEE.docx` |
+| SAVI v3 cloud native | Real Ames data, event-driven AWS pipeline (S3 · Lambda · EC2 · SageMaker), Double DQN, 131 tests + CI | `cloud/` |
 
 ---
 
