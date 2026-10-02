@@ -1,0 +1,32 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadSuccessMarkers",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${PROCESSED_BUCKET}/runs/*/_SUCCESS.json"
+    },
+    {
+      "Sid": "LaunchTrainingJobs",
+      "Effect": "Allow",
+      "Action": ["sagemaker:CreateTrainingJob", "sagemaker:AddTags"],
+      "Resource": "arn:aws:sagemaker:${REGION}:${ACCOUNT_ID}:training-job/savi-dqn-*"
+    },
+    {
+      "Sid": "PassSageMakerExecutionRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "${SAGEMAKER_ROLE_ARN}",
+      "Condition": {
+        "StringEquals": { "iam:PassedToService": "sagemaker.amazonaws.com" }
+      }
+    },
+    {
+      "Sid": "WriteOwnLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:/aws/lambda/savi-start-sagemaker:*"
+    }
+  ]
+}

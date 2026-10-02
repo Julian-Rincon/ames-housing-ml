@@ -1,0 +1,8 @@
+.venv/
+data/
+out/
+__pycache__/
+*.zip
+build/
+infra/deployment.json
+.pytest_cache/
