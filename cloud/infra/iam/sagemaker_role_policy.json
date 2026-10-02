@@ -1,0 +1,41 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadProcessedRunsAndCode",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::${PROCESSED_BUCKET}",
+        "arn:aws:s3:::${PROCESSED_BUCKET}/runs/*",
+        "arn:aws:s3:::${PROCESSED_BUCKET}/code/*"
+      ]
+    },
+    {
+      "Sid": "WriteTrainingOutputAndCheckpoints",
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": [
+        "arn:aws:s3:::${PROCESSED_BUCKET}/runs/*/sagemaker/*",
+        "arn:aws:s3:::${PROCESSED_BUCKET}/runs/*/checkpoints/*"
+      ]
+    },
+    {
+      "Sid": "PullTrainingDlcImage",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WriteTrainingJobLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"],
+      "Resource": "arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:/aws/sagemaker/TrainingJobs:*"
+    }
+  ]
+}
