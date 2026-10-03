@@ -79,7 +79,6 @@ DATASET_CANDIDATES = [
     Path(os.environ["AMES_DATASET_PATH"]) if os.environ.get("AMES_DATASET_PATH") else None,
     Path("ames_combined_2006_2024.csv"),
     Path("data") / "ames_combined_2006_2024.csv",
-    Path(r"C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv"),
 ]
 DATASET_PATH = next((p for p in DATASET_CANDIDATES if p and p.exists()), DATASET_CANDIDATES[1])
 
