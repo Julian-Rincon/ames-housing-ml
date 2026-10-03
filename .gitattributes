@@ -1,0 +1,6 @@
+# Estadísticas de lenguajes de GitHub (Linguist): los notebooks exploratorios y las
+# presentaciones HTML exportadas son documentación del proyecto, no código fuente.
+# El código real (pipeline, Lambdas, agente RAG y su interfaz web) sí se contabiliza.
+*.ipynb linguist-documentation
+SAVI_v2_ParcialFinal.html linguist-documentation
+MDP_Ames_Presentacion.html linguist-documentation
