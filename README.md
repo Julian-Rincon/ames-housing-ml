@@ -81,17 +81,28 @@ timeline
 
 ```mermaid
 flowchart LR
-    U([👤 Upload dataset]) -->|aws s3 cp| RAW[(S3 raw<br/>input/ · reference/ · code/)]
-    RAW -->|ObjectCreated input/| L1[λ savi-start-ec2<br/>tags run_id · starts EC2]
-    L1 --> EC2[🖥️ EC2 t3.medium · CPU engine<br/>data integration · K-Means · XGBoost CV<br/>Value Iteration · Q-Learning · RAG export]
-    EC2 -.->|shutdown -h now| EC2
-    EC2 -->|artifacts + _SUCCESS.json| PROC[(S3 processed<br/>runs/&lt;run_id&gt;/)]
-    PROC -->|ObjectCreated _SUCCESS.json| L2[λ savi-start-sagemaker<br/>GPU Spot → GPU → CPU Spot → CPU]
-    L2 --> SM[🧠 SageMaker Training Job<br/>Double DQN · rule selection on VAL]
-    SM -->|model.tar.gz · serving/ · latest.json| PROC
-    PROC --> API[λ savi-api · Function URL<br/>RAG agent + web app]
-    API --> B([🌐 Browser])
-    EC2 & L1 & L2 & SM & API -.->|logs| CW[(CloudWatch)]
+    subgraph S1 ["① Ingest"]
+        direction TB
+        U([👤 upload<br/>AmesHousing.txt]):::user --> RAW[(S3 raw<br/>input · reference)]:::store --> L1[λ start-ec2<br/>tag run_id]:::lambda
+    end
+    subgraph S2 ["② CPU engine · EC2"]
+        direction TB
+        EC2[K-Means · XGBoost CV<br/>Value Iteration<br/>Q-Learning<br/>RAG export]:::compute --> OFF[⏻ self-shutdown<br/>trap EXIT]:::off
+    end
+    subgraph S3 ["③ Learning · SageMaker"]
+        direction TB
+        RUNS[(S3 runs/<br/>_SUCCESS.json)]:::store --> L2[λ start-sagemaker<br/>GPU→CPU Spot]:::lambda --> SM[Double DQN<br/>rule on VAL]:::compute
+    end
+    subgraph S4 ["④ Serving · public URL"]
+        direction TB
+        SERV[(S3 serving/<br/>latest.json)]:::store --> API[λ savi-api<br/>RAG agent + UI]:::lambda --> B([🌐 browser]):::user
+    end
+    S1 ==> S2 ==> S3 ==> S4
+    classDef user fill:#1f2937,stroke:#c9a84c,color:#fff
+    classDef store fill:#e8f5e9,stroke:#569A31,color:#1b4332
+    classDef lambda fill:#fff3e0,stroke:#FF9900,color:#7c2d12
+    classDef compute fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1
+    classDef off fill:#f3f4f6,stroke:#9ca3af,color:#374151,stroke-dasharray:4 3
 ```
 
 <details>
@@ -148,13 +159,19 @@ flowchart TB
     AG -->|key in SSM| CL[Claude tool-use loop<br/>adaptive thinking · ≤ 6 turns]
     AG -->|no key / API error| DT[Deterministic planner<br/>intent rules + templates]
     CL & DT --> TOOLS
-    subgraph TOOLS [8 retrieval & compute tools]
-        T1[get_parcel] --- T2[search_parcels] --- T3[find_comparables]
-        T4[value_property · what-if] --- T5[area_stats] --- T6[market_trend]
-        T7[search_knowledge · BM25] --- T8[model_card]
+    subgraph TOOLS [" 8 retrieval & compute tools "]
+        T1[get_parcel] ~~~ T2[search_parcels] ~~~ T3[find_comparables]
+        T4[value_property · what-if] ~~~ T5[area_stats] ~~~ T6[market_trend]
+        T7[search_knowledge · BM25] ~~~ T8[model_card]
     end
     TOOLS --> KB[(Knowledge base from the pipeline<br/>18,078 parcels · 2,930 geolocated sales<br/>FHFA · Zillow · 28 neighborhoods · 672 subdivisions<br/>XGBoost · K-Means · DQN exported as JSON)]
     TOOLS --> ANS([Grounded answer + tool trace + evidence map])
+    classDef llm fill:#fde7dc,stroke:#D97757,color:#7c2d12
+    classDef det fill:#eef2ff,stroke:#6366f1,color:#312e81
+    classDef kb fill:#e8f5e9,stroke:#569A31,color:#1b4332
+    class CL llm
+    class DT det
+    class KB kb
 ```
 
 - **Every number is retrieved, never invented**: answers cite parcel/sale IDs and sources and show the tools used.
