@@ -1,0 +1,48 @@
+name: SAVI Cloud CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["cloud/**", ".github/workflows/cloud-ci.yml"]
+  pull_request:
+    paths: ["cloud/**", ".github/workflows/cloud-ci.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: cloud/requirements-ec2.txt
+      - name: Instalar dependencias (torch CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ec2.txt pytest shellcheck-py
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Shellcheck scripts del EC2
+        run: shellcheck ec2/run_pipeline.sh ec2/user-data.sh.tpl
+      - name: Tests (sin AWS real; los e2e 'slow' necesitan datos locales)
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+        run: python -m pytest -q -m "not slow"
+      - name: Tests de la API del agente (los que validan contra artefactos reales se omiten sin datos)
+        run: |
+          pip install anthropic
+          cd api && python -m pytest -q tests
+      - name: Paquete Lambda de la API (< 50 MB)
+        run: python api/build_lambda.py
+      - name: Dry-run del despliegue (sin credenciales)
+        run: python infra/deploy.py --dry-run --account-id 123456789012

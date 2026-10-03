@@ -1,0 +1,37 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadRawInputReferenceAndCode",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::${RAW_BUCKET}",
+        "arn:aws:s3:::${RAW_BUCKET}/input/*",
+        "arn:aws:s3:::${RAW_BUCKET}/reference/*",
+        "arn:aws:s3:::${RAW_BUCKET}/code/cpu/*"
+      ]
+    },
+    {
+      "Sid": "WriteProcessedRuns",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::${PROCESSED_BUCKET}",
+        "arn:aws:s3:::${PROCESSED_BUCKET}/runs/*"
+      ]
+    },
+    {
+      "Sid": "CheckSuccessMarkerIdempotency",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${PROCESSED_BUCKET}/runs/*/_SUCCESS.json"
+    },
+    {
+      "Sid": "WriteOwnLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:/savi/ec2-cpu-engine:*"
+    }
+  ]
+}

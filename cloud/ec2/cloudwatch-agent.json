@@ -1,0 +1,23 @@
+{
+  "_comment": "Plantilla de referencia/documentación. El archivo REAL que usa el agente se genera en runtime dentro de /opt/savi/bootstrap.sh (función write_cw_agent_config), porque necesita valores que sólo existen en el boot: el instance-id (nombre del log stream) y REGION/LOG_GROUP leídos de /etc/savi.env. Se deja esta copia estática en el repo para documentar la forma exacta de la config.",
+  "agent": {
+    "metrics_collection_interval": 60,
+    "region": "__REGION__",
+    "logfile": "/var/log/savi/cloudwatch-agent.log"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/savi/*.log",
+            "log_group_name": "__LOG_GROUP__",
+            "log_stream_name": "__INSTANCE_ID__",
+            "timestamp_format": "%Y-%m-%dT%H:%M:%SZ",
+            "retention_in_days": 14
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAVI · Agente de valuación — Ames, Iowa</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2311161c'/%3E%3Cpath d='M4 20 L16 7 L28 20' stroke='%23c9a84c' stroke-width='2.5' fill='none'/%3E%3Crect x='10' y='20' width='12' height='8' fill='none' stroke='%23c9a84c' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root{
+    --bg:#11161c;
+    --bg-raised:#161d25;
+    --bg-sunken:#0b0e12;
+    --ink:#e8e6de;
+    --ink-dim:#9aa3ac;
+    --ink-faint:#838d97;
+    --line:#2a323b;
+    --line-soft:#1d242c;
+    --wheat:#c9a84c;
+    --wheat-ink:#1a1506;
+    --sage:#6fa86f;
+    --amber:#d9a441;
+    --brick:#c1604a;
+    --focus:#7fb3d9;
+    --font-ui: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:var(--font-ui); font-size:15px; line-height:1.5;
+    min-height:100vh;
+  }
+  ::selection{ background:var(--wheat); color:var(--wheat-ink); }
+  a{ color:var(--focus); }
+  :focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+  button, input, select, textarea{ font-family:inherit; font-size:inherit; color:inherit; }
+  table{ border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; }
+  .mono{ font-family:var(--font-mono); }
+  .num{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+
+  /* ---- header ticker ---- */
+  .ticker{
+    display:flex; align-items:center; gap:1.25rem;
+    padding:.6rem 1rem; border-bottom:1px solid var(--line);
+    background:var(--bg-sunken);
+    font-family:var(--font-mono); font-size:.8rem; color:var(--ink-dim);
+    flex-wrap:wrap; position:sticky; top:0; z-index:20;
+  }
+  .ticker .brand{
+    color:var(--wheat); font-weight:600; font-size:.95rem; letter-spacing:.02em;
+    font-family:var(--font-ui);
+  }
+  .ticker .sep{ color:var(--line); }
+  .ticker .tag{ padding:.1rem .4rem; border:1px solid var(--line); border-radius:var(--radius); }
+  .ticker .tag.live{ border-color:var(--sage); color:var(--sage); }
+  .ticker .tag.det{ border-color:var(--amber); color:var(--amber); }
+
+  /* ---- shell ---- */
+  .shell{ display:flex; min-height:calc(100vh - 42px); }
+  nav.rail{
+    width:190px; flex:none; border-right:1px solid var(--line);
+    background:var(--bg-sunken);
+    display:flex; flex-direction:column; padding:.75rem 0;
+  }
+  nav.rail button{
+    all:unset; cursor:pointer; padding:.65rem 1.1rem;
+    color:var(--ink-dim); border-left:2px solid transparent;
+    display:flex; flex-direction:column; gap:.1rem;
+  }
+  nav.rail button .t{ color:var(--ink); font-size:.95rem; }
+  nav.rail button .d{ font-size:.72rem; color:var(--ink-faint); }
+  nav.rail button:hover{ background:var(--bg-raised); }
+  nav.rail button[aria-current="page"]{
+    border-left-color:var(--wheat); background:var(--bg-raised);
+  }
+  nav.rail button[aria-current="page"] .t{ color:var(--wheat); }
+
+  main{ flex:1; min-width:0; padding:1.25rem 1.5rem 3rem; }
+  section[hidden]{ display:none !important; }
+  h1,h2,h3{ font-weight:600; margin:0 0 .5rem; }
+  h1{ font-size:1.3rem; }
+  h2{ font-size:1.05rem; color:var(--ink); }
+  h3, h2.h3{ font-size:.92rem; color:var(--ink-dim); font-weight:600; }
+  p{ margin:.4rem 0; }
+  .lede{ color:var(--ink-dim); max-width:62ch; margin-bottom:1rem; }
+
+  .panel{
+    border:1px solid var(--line); border-radius:var(--radius);
+    background:var(--bg-raised); padding:1rem 1.1rem; margin-bottom:1rem;
+  }
+  .panel + .panel{ margin-top:1rem; }
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; }
+  @media (max-width:860px){ .grid-2, .grid-3{ grid-template-columns:1fr; } }
+
+  .field{ display:flex; flex-direction:column; gap:.3rem; margin-bottom:.7rem; }
+  .field label{ font-size:.78rem; color:var(--ink-dim); }
+  .field input, .field select{
+    background:var(--bg-sunken); border:1px solid var(--line); color:var(--ink);
+    border-radius:var(--radius); padding:.45rem .55rem;
+  }
+  .row{ display:flex; gap:.6rem; flex-wrap:wrap; align-items:flex-end; }
+  .btn{
+    cursor:pointer; border:1px solid var(--wheat); background:transparent; color:var(--wheat);
+    padding:.5rem .9rem; border-radius:var(--radius); font-weight:600;
+  }
+  .btn:hover{ background:var(--wheat); color:var(--wheat-ink); }
+  .btn.ghost{ border-color:var(--line); color:var(--ink-dim); }
+  .btn.ghost:hover{ background:var(--bg-sunken); color:var(--ink); }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .chip{
+    cursor:pointer; border:1px solid var(--line); background:var(--bg-sunken);
+    color:var(--ink-dim); padding:.4rem .65rem; border-radius:12px; font-size:.82rem;
+    text-align:left;
+  }
+  .chip:hover{ border-color:var(--wheat); color:var(--ink); }
+
+  .badge{
+    display:inline-flex; align-items:center; gap:.3rem; font-weight:700; font-size:.82rem;
+    padding:.2rem .55rem; border-radius:var(--radius); border:1px solid currentColor;
+    font-family:var(--font-mono);
+  }
+  .badge.APROBAR{ color:var(--sage); }
+  .badge.REVISAR{ color:var(--amber); }
+  .badge.RECHAZAR{ color:var(--brick); }
+  .badge.claude{ color:var(--focus); border-color:var(--focus); }
+  .badge.deterministic{ color:var(--amber); border-color:var(--amber); }
+
+  .qbars{ display:flex; flex-direction:column; gap:.4rem; margin:.5rem 0; }
+  .qbar-row{ display:grid; grid-template-columns:90px 1fr 70px; gap:.5rem; align-items:center; font-size:.8rem; }
+  .qbar-track{ height:10px; background:var(--bg-sunken); border:1px solid var(--line-soft); border-radius:6px; overflow:hidden; }
+  .qbar-fill{ height:100%; }
+  .qbar-fill.APROBAR{ background:var(--sage); }
+  .qbar-fill.REVISAR{ background:var(--amber); }
+  .qbar-fill.RECHAZAR{ background:var(--brick); }
+
+  .kv{ display:grid; grid-template-columns:1fr auto; gap:.25rem .75rem; font-size:.86rem; }
+  .kv dt{ color:var(--ink-dim); }
+  .kv dd{ margin:0; font-family:var(--font-mono); text-align:right; }
+
+  table.data{ font-size:.84rem; }
+  table.data th{ text-align:left; color:var(--ink-dim); font-weight:600; border-bottom:1px solid var(--line); padding:.4rem .5rem; }
+  table.data td{ border-bottom:1px solid var(--line-soft); padding:.4rem .5rem; }
+  table.data td.num, table.data th.num{ text-align:right; font-family:var(--font-mono); }
+
+  .map{ height:280px; border:1px solid var(--line); border-radius:var(--radius); background:var(--bg-sunken); }
+  .map.small{ height:200px; }
+
+  .status{ font-size:.85rem; color:var(--ink-dim); padding:.4rem 0; }
+  .status.error{ color:var(--brick); }
+
+  /* ---- chat ---- */
+  .chat-log{ display:flex; flex-direction:column; gap:.9rem; margin-bottom:1rem; }
+  .msg{ max-width:78ch; }
+  .msg .who{ font-size:.72rem; color:var(--ink-faint); margin-bottom:.2rem; font-family:var(--font-mono); }
+  .msg.user{ align-self:flex-end; margin-left:auto; text-align:right; }
+  .msg.user .bubble{ background:var(--bg-sunken); border:1px solid var(--line); display:inline-block; text-align:left; padding:.6rem .8rem; border-radius:var(--radius); }
+  .msg.agent .bubble{ border:1px solid var(--line); background:var(--bg-raised); padding:.7rem .9rem; border-radius:var(--radius); animation:settle .25s ease-out; }
+  @media (prefers-reduced-motion:reduce){ .msg.agent .bubble{ animation:none; } }
+  @keyframes settle{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
+  .bubble :is(h1,h2,h3){ margin-top:0; }
+  .bubble table{ margin:.5rem 0; font-size:.86rem; }
+  .bubble table th, .bubble table td{ border:1px solid var(--line); padding:.3rem .5rem; }
+  .bubble code{ background:var(--bg-sunken); padding:.05rem .3rem; border-radius:3px; font-family:var(--font-mono); font-size:.85em; }
+  .bubble pre{ background:var(--bg-sunken); padding:.6rem; border-radius:var(--radius); overflow:auto; border:1px solid var(--line); }
+  .bubble ul{ padding-left:1.2rem; }
+  .trace summary{ cursor:pointer; color:var(--ink-dim); font-size:.78rem; margin-top:.5rem; font-family:var(--font-mono); }
+  .trace-item{ font-size:.78rem; padding:.3rem 0; border-top:1px solid var(--line-soft); }
+  .trace-item .name{ color:var(--wheat); font-family:var(--font-mono); }
+  .evidence{ margin-top:.6rem; display:flex; flex-direction:column; gap:.5rem; }
+  .evidence-cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:.5rem; }
+  .ecard{ border:1px solid var(--line); border-radius:var(--radius); padding:.5rem .6rem; background:var(--bg-sunken); font-size:.8rem; }
+  .ecard .pid{ font-family:var(--font-mono); color:var(--wheat); }
+  .chat-form{ display:flex; gap:.5rem; position:sticky; bottom:0; background:var(--bg); padding-top:.5rem; }
+  .chat-form textarea{
+    flex:1; resize:none; background:var(--bg-sunken); border:1px solid var(--line); color:var(--ink);
+    border-radius:var(--radius); padding:.6rem .7rem; min-height:2.6rem; max-height:8rem;
+  }
+  .chips-row{ display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.8rem; }
+
+  footer.note{ color:var(--ink-faint); font-size:.78rem; margin-top:2rem; border-top:1px solid var(--line-soft); padding-top:.75rem; }
+
+  svg.chart text{ font-family:var(--font-mono); fill:var(--ink-dim); }
+  svg.chart .axis{ stroke:var(--line); }
+  svg.chart .series{ fill:none; stroke-width:2; }
+
+  @media (max-width:760px){
+    .shell{ flex-direction:column; }
+    nav.rail{ width:100%; flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid var(--line); padding:.4rem; }
+    nav.rail button{ border-left:none; border-bottom:2px solid transparent; flex:none; padding:.5rem .8rem; }
+    nav.rail button[aria-current="page"]{ border-bottom-color:var(--wheat); }
+    main{ padding:1rem .9rem 2.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="ticker" id="ticker" aria-label="Estado del sistema">
+  <span class="brand">SAVI</span>
+  <span class="sep">·</span>
+  <span id="tk-run">cargando…</span>
+  <span class="sep">·</span>
+  <span id="tk-hpi"></span>
+  <span class="sep">·</span>
+  <span id="tk-counts"></span>
+  <span id="tk-mode" style="margin-left:auto;"></span>
+</header>
+
+<div class="shell">
+  <nav class="rail" aria-label="Secciones">
+    <button data-view="chat" aria-current="page"><span class="t">Chat con el agente</span><span class="d">consulta en lenguaje natural</span></button>
+    <button data-view="parcel"><span class="t">Explorar parcela</span><span class="d">AVM · decisión · comparables</span></button>
+    <button data-view="market"><span class="t">Mercado</span><span class="d">FHFA HPI · Zillow ZHVI</span></button>
+    <button data-view="model"><span class="t">Modelo</span><span class="d">métricas · política · límites</span></button>
+  </nav>
+
+  <main>
+
+    <!-- ============ CHAT ============ -->
+    <section id="view-chat" aria-labelledby="h-chat">
+      <h1 id="h-chat">Chat con el agente SAVI</h1>
+      <p class="lede">Preguntá en español sobre una parcela, comparables de venta, el mercado de Ames o cómo razona el agente. Cada respuesta cita evidencia real recuperada de los datos del condado.</p>
+
+      <div class="chips-row" id="chat-chips"></div>
+
+      <div class="chat-log" id="chat-log" aria-live="polite"></div>
+      <div id="chat-status" class="status" role="status"></div>
+
+      <form class="chat-form" id="chat-form">
+        <label for="chat-input" class="field" style="position:absolute;left:-9999px;">Mensaje</label>
+        <textarea id="chat-input" rows="1" placeholder="Escribí tu pregunta, p. ej. ¿cuánto vale la parcela 0526301100?" required></textarea>
+        <button class="btn" type="submit" id="chat-send">Enviar</button>
+      </form>
+    </section>
+
+    <!-- ============ PARCEL ============ -->
+    <section id="view-parcel" hidden aria-labelledby="h-parcel">
+      <h1 id="h-parcel">Explorar parcela</h1>
+      <p class="lede">Buscá un PID (identificador de parcela del condado de Story, p. ej. <code>0526301100</code>) para ver su valuación AVM, la decisión del agente y comparables de venta.</p>
+
+      <form class="row" id="parcel-form">
+        <div class="field" style="flex:1; min-width:220px;">
+          <label for="pid-input">PID de la parcela</label>
+          <input id="pid-input" type="text" inputmode="numeric" placeholder="0526301100" required>
+        </div>
+        <button class="btn" type="submit">Buscar</button>
+      </form>
+      <div id="parcel-status" class="status" role="status"></div>
+
+      <div id="parcel-result" hidden>
+        <div class="panel">
+          <div class="row" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+              <h2><span class="mono" id="p-pid"></span> <span id="p-neighborhood" class="status" style="display:inline;"></span></h2>
+              <div class="kv" style="margin-top:.4rem;">
+                <dt>AVM hoy</dt><dd id="p-avm">—</dd>
+                <dt>Avalúo 2024</dt><dd id="p-assessed">—</dd>
+                <dt>Brecha (AVM vs. avalúo)</dt><dd id="p-gap">—</dd>
+                <dt>$/ft² (hoy)</dt><dd id="p-ppsf">—</dd>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div id="p-decision-badge"></div>
+              <p class="status" id="p-geo" style="max-width:22ch;"></p>
+            </div>
+          </div>
+
+          <h3 style="margin-top:1rem;">Valores Q por acción</h3>
+          <div class="qbars" id="p-qbars"></div>
+          <p class="status" id="p-margin"></p>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Características clave</h3>
+            <dl class="kv" id="p-features"></dl>
+          </div>
+          <div class="panel">
+            <h3>Ubicación</h3>
+            <div class="map small" id="p-map"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="row" style="justify-content:space-between;">
+            <h3 style="margin:0;">Comparables de venta</h3>
+            <button class="btn ghost" id="comps-btn" type="button">Buscar comparables</button>
+          </div>
+          <div id="comps-status" class="status" role="status"></div>
+          <div id="comps-result" hidden>
+            <div class="map" id="comps-map" style="margin-bottom:.6rem;"></div>
+            <table class="data" id="comps-table">
+              <thead><tr>
+                <th>PID</th><th>Barrio</th><th>Venta</th>
+                <th class="num">Precio nominal</th><th class="num">Precio hoy</th>
+                <th class="num">Área (ft²)</th><th class="num">Similitud</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Simulación "¿qué pasa si...?"</h3>
+          <p class="status">Modificá atributos de la parcela y recalculá su valor con el modelo AVM y la decisión del agente.</p>
+          <form id="whatif-form">
+            <div class="grid-3">
+              <div class="field"><label for="wi-living-area">Área habitable (ft²)</label><input id="wi-living-area" type="number" min="200" step="10"></div>
+              <div class="field"><label for="wi-year-built">Año de construcción</label><input id="wi-year-built" type="number" min="1870" max="2026" step="1"></div>
+              <div class="field"><label for="wi-beds">Habitaciones (sobre nivel)</label><input id="wi-beds" type="number" min="0" max="10" step="1"></div>
+              <div class="field"><label for="wi-grade">Grado de construcción</label><input id="wi-grade" type="text" placeholder="p. ej. 2-10"></div>
+              <div class="field">
+                <label for="wi-condition">Condición</label>
+                <select id="wi-condition">
+                  <option value="">(sin cambio)</option>
+                  <option>Excellent</option><option>Good</option><option>Above Average</option>
+                  <option>Normal</option><option>Below Average</option><option>Fair</option><option>Poor</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="wi-neighborhood">Barrio</label>
+                <select id="wi-neighborhood"><option value="">(sin cambio)</option></select>
+              </div>
+            </div>
+            <button class="btn" type="submit">Recalcular valuación</button>
+          </form>
+          <div id="whatif-status" class="status" role="status"></div>
+          <div id="whatif-result" hidden class="panel" style="margin-top:.75rem; background:var(--bg-sunken);">
+            <div class="kv">
+              <dt>Nuevo valor AVM</dt><dd id="wi-value">—</dd>
+              <dt>Rango (±MAPE)</dt><dd id="wi-range">—</dd>
+              <dt>Cluster</dt><dd id="wi-cluster">—</dd>
+            </div>
+            <div id="wi-decision-badge" style="margin:.5rem 0;"></div>
+            <div class="qbars" id="wi-qbars"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MARKET ============ -->
+    <section id="view-market" hidden aria-labelledby="h-market">
+      <h1 id="h-market">Mercado inmobiliario — Ames, Iowa</h1>
+      <p class="lede">Índices públicos de precios de vivienda usados para actualizar los avalúos del condado a valor presente.</p>
+      <div id="market-status" class="status" role="status">Cargando…</div>
+      <div id="market-result" hidden>
+        <div class="grid-2">
+          <div class="panel">
+            <h2 class="h3">FHFA House Price Index — área de Ames (trimestral)</h2>
+            <div class="kv" id="market-hpi-kv" style="margin-bottom:.6rem;"></div>
+            <div id="market-hpi-chart"></div>
+          </div>
+          <div class="panel">
+            <h2 class="h3">Zillow ZHVI (mensual)</h2>
+            <div class="kv" id="market-zhvi-kv" style="margin-bottom:.6rem;"></div>
+            <div id="market-zhvi-chart"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MODEL ============ -->
+    <section id="view-model" hidden aria-labelledby="h-model">
+      <h1 id="h-model">Ficha del modelo</h1>
+      <p class="lede">Cómo fue entrenado y evaluado el sistema: el modelo de valuación (AVM) y la política de decisión (aprendizaje por refuerzo).</p>
+      <div id="model-status" class="status" role="status">Cargando…</div>
+      <div id="model-result" hidden>
+        <div class="grid-2">
+          <div class="panel">
+            <h2 class="h3">Modelo de valuación (AVM — XGBoost)</h2>
+            <dl class="kv" id="model-avm-kv"></dl>
+          </div>
+          <div class="panel">
+            <h2 class="h3">Política de decisión seleccionada</h2>
+            <dl class="kv" id="model-policy-kv"></dl>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 class="h3">Recompensa por regla de decisión (validación / prueba)</h2>
+          <table class="data" id="model-rules-table">
+            <thead><tr><th>Regla</th><th class="num">Entrenamiento</th><th class="num">Validación</th><th class="num">Prueba</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h2 class="h3">Función de recompensa</h2>
+            <dl class="kv" id="model-reward-kv"></dl>
+          </div>
+          <div class="panel">
+            <h2 class="h3">Fuentes de datos</h2>
+            <ul id="model-sources" style="margin:0; padding-left:1.1rem; font-size:.86rem; color:var(--ink-dim);"></ul>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 class="h3">Limitaciones honestas</h2>
+          <ul id="model-limits" style="margin:0; padding-left:1.1rem; font-size:.88rem;"></ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="note">
+      SAVI — agente de valuación de propiedades para Ames, Iowa. Proyecto académico de aprendizaje de máquina; no constituye asesoría de inversión ni un avalúo oficial.
+      Mapas © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores de OpenStreetMap</a>.
+    </footer>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   0. CONFIG + SMALL HELPERS
+   ============================================================ */
+const API = window.SAVI_API_BASE || "";
+const $  = (sel, root) => (root||document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root||document).querySelectorAll(sel));
+
+function escapeHtml(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function fmtUSD(n){
+  if (n==null || isNaN(n)) return "—";
+  return "$" + Math.round(n).toLocaleString("en-US");
+}
+function fmtNum(n, d){
+  if (n==null || isNaN(n)) return "—";
+  return Number(n).toLocaleString("en-US", {maximumFractionDigits: d==null?0:d});
+}
+function fmtPct(n, d){
+  if (n==null || isNaN(n)) return "—";
+  return (n*100).toLocaleString("en-US", {maximumFractionDigits:d==null?1:d}) + "%";
+}
+function fmtDate(sale_date){
+  // sale_date as YYYYMM int/string
+  if (sale_date==null) return "—";
+  const s = String(sale_date);
+  if (s.length===6) return s.slice(4,6)+"/"+s.slice(0,4);
+  return s;
+}
+
+// pick first defined value among several dotted paths in an object (defensive against
+// slightly different API response shapes while the backend is under active development)
+function pick(obj, paths, dflt){
+  for (const p of paths){
+    const parts = p.split(".");
+    let v = obj;
+    for (const part of parts){
+      if (v==null) { v = undefined; break; }
+      v = v[part];
+    }
+    if (v!==undefined && v!==null) return v;
+  }
+  return dflt;
+}
+
+async function api(path, opts){
+  const url = API + path;
+  let res;
+  try{
+    res = await fetch(url, Object.assign({headers:{"Accept":"application/json"}}, opts||{}));
+  }catch(err){
+    throw new Error("No se pudo contactar la API (" + path + "). ¿Está corriendo el servidor?");
+  }
+  let data = null;
+  try{ data = await res.json(); }catch(e){ /* ignore parse errors below */ }
+  if (!res.ok){
+    const msg = (data && data.error) ? data.error : ("Error HTTP " + res.status);
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function setStatus(el, kind, msg){
+  el.classList.remove("error");
+  if (kind === "error") el.classList.add("error");
+  el.textContent = msg || "";
+}
+
+/* ============================================================
+   1. TINY SAFE MARKDOWN RENDERER
+   headings, bold, inline code, fenced code, lists, tables, paragraphs.
+   All text is HTML-escaped before any tag is introduced.
+   ============================================================ */
+function renderMarkdown(src){
+  if (!src) return "";
+  const lines = String(src).replace(/\r\n/g,"\n").split("\n");
+  let html = "";
+  let i = 0;
+  let inList = false;
+
+  function closeList(){ if (inList){ html += "</ul>"; inList = false; } }
+
+  function inline(text){
+    let t = escapeHtml(text);
+    t = t.replace(/`([^`]+)`/g, (m,c) => "<code>"+c+"</code>");
+    t = t.replace(/\*\*([^*]+)\*\*/g, (m,b) => "<strong>"+b+"</strong>");
+    t = t.replace(/\*([^*]+)\*/g, (m,b) => "<em>"+b+"</em>");
+    t = t.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,;:])/g, (m,pre,b) => pre+"<em>"+b+"</em>");
+    return t;
+  }
+
+  while (i < lines.length){
+    const line = lines[i];
+
+    // fenced code block
+    if (/^```/.test(line)){
+      closeList();
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])){ buf.push(lines[i]); i++; }
+      html += "<pre><code>" + escapeHtml(buf.join("\n")) + "</code></pre>";
+      i++; // skip closing fence
+      continue;
+    }
+
+    // table: header row + separator row
+    if (/^\s*\|.*\|\s*$/.test(line) && i+1 < lines.length && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i+1]) && lines[i+1].includes("-")){
+      closeList();
+      const headCells = line.trim().replace(/^\||\|$/g,"").split("|").map(s=>s.trim());
+      let body = "<table><thead><tr>" + headCells.map(c=>"<th>"+inline(c)+"</th>").join("") + "</tr></thead><tbody>";
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])){
+        const cells = lines[i].trim().replace(/^\||\|$/g,"").split("|").map(s=>s.trim());
+        body += "<tr>" + cells.map(c=>"<td>"+inline(c)+"</td>").join("") + "</tr>";
+        i++;
+      }
+      body += "</tbody></table>";
+      html += body;
+      continue;
+    }
+
+    // headings
+    let m;
+    if ((m = /^(#{1,3})\s+(.*)$/.exec(line))){
+      closeList();
+      const level = m[1].length;
+      html += "<h" + (level+2) + ">" + inline(m[2]) + "</h" + (level+2) + ">";
+      i++; continue;
+    }
+
+    // list item
+    if ((m = /^\s*[-*]\s+(.*)$/.exec(line))){
+      if (!inList){ html += "<ul>"; inList = true; }
+      html += "<li>" + inline(m[1]) + "</li>";
+      i++; continue;
+    }
+
+    // blank line
+    if (/^\s*$/.test(line)){ closeList(); i++; continue; }
+
+    // paragraph
+    closeList();
+    html += "<p>" + inline(line) + "</p>";
+    i++;
+  }
+  closeList();
+  return html;
+}
+
+/* ============================================================
+   2. DECISION HELPERS (shared: chat evidence, parcel, what-if)
+   ============================================================ */
+const DECISIONS = ["APROBAR","REVISAR","RECHAZAR"];
+function decisionBadge(d){
+  if (!d) return "";
+  const cls = DECISIONS.includes(d) ? d : "REVISAR";
+  return '<span class="badge ' + cls + '">' + escapeHtml(d) + "</span>";
+}
+function qArrayOf(dec){
+  if (!dec) return [];
+  if (Array.isArray(dec.q)) return dec.q;
+  if (dec.q_values && typeof dec.q_values === "object") return DECISIONS.map(a => dec.q_values[a]).filter(v => typeof v === "number");
+  return [];
+}
+function fmtPctPts(v){ return (typeof v === "number" && isFinite(v)) ? (v>=0?"+":"") + v.toFixed(1) + "%" : "—"; }
+function ciText(ci){ return (Array.isArray(ci) && ci.length===2) ? ' <span class="status">[' + fmtNum(ci[0],1) + ", " + fmtNum(ci[1],1) + "]</span>" : ""; }
+function renderQBars(container, qArr, finalDecision){
+  container.innerHTML = "";
+  if (!Array.isArray(qArr) || !qArr.length) return;
+  const max = Math.max.apply(null, qArr.map(v=>Math.abs(v)).concat([1]));
+  qArr.forEach((v, idx) => {
+    const label = DECISIONS[idx] || ("acción " + idx);
+    const pct = Math.max(2, Math.min(100, (v / max) * 100));
+    const row = document.createElement("div");
+    row.className = "qbar-row";
+    row.innerHTML =
+      '<span class="mono">' + escapeHtml(label) + (label===finalDecision ? " ●" : "") + '</span>' +
+      '<span class="qbar-track"><span class="qbar-fill ' + (DECISIONS.includes(label)?label:"") + '" style="width:' + pct + '%"></span></span>' +
+      '<span class="num">' + fmtNum(v, 1) + '</span>';
+    container.appendChild(row);
+  });
+}
+
+/* ============================================================
+   3. LEAFLET MAP HELPERS (registry so we can re-init cleanly)
+   ============================================================ */
+const mapRegistry = {};
+function getMap(containerId){
+  if (mapRegistry[containerId]){
+    mapRegistry[containerId].remove();
+    delete mapRegistry[containerId];
+  }
+  const el = document.getElementById(containerId);
+  if (!el) return null;
+  const map = L.map(el, {scrollWheelZoom:false}).setView([42.03, -93.62], 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; OpenStreetMap',
+    maxZoom: 19
+  }).addTo(map);
+  mapRegistry[containerId] = map;
+  return map;
+}
+function pinColor(decision){
+  if (decision === "APROBAR") return "#6fa86f";
+  if (decision === "REVISAR") return "#d9a441";
+  if (decision === "RECHAZAR") return "#c1604a";
+  return "#c9a84c";
+}
+function addPin(map, lat, lon, color, label){
+  if (lat==null || lon==null) return null;
+  const marker = L.circleMarker([lat, lon], {
+    radius: 7, color: color, weight: 2, fillColor: color, fillOpacity: .55
+  }).addTo(map);
+  if (label) marker.bindTooltip(label, {direction:"top"});
+  return marker;
+}
+function fitPins(map, points){
+  const valid = points.filter(p => p && p[0]!=null && p[1]!=null);
+  if (!valid.length) return;
+  if (valid.length===1){ map.setView(valid[0], 14); return; }
+  map.fitBounds(L.latLngBounds(valid.map(p=>[p[0],p[1]])), {padding:[24,24]});
+}
+
+/* ============================================================
+   4. NAVIGATION
+   ============================================================ */
+const views = ["chat","parcel","market","model"];
+function showView(name){
+  views.forEach(v => {
+    $("#view-"+v).hidden = (v !== name);
+  });
+  $$("nav.rail button").forEach(b => {
+    if (b.dataset.view === name) b.setAttribute("aria-current","page");
+    else b.removeAttribute("aria-current");
+  });
+  if (name === "market" && !marketLoaded) loadMarket();
+  if (name === "model" && !modelLoaded) loadModel();
+  if (name === "parcel" && !areasLoaded) loadAreasForWhatIf();
+}
+$$("nav.rail button").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
+
+/* ============================================================
+   5. HEADER / HEALTH
+   ============================================================ */
+async function loadHealth(){
+  try{
+    const h = await api("/api/health");
+    $("#tk-run").textContent = "run " + pick(h,["run_id"],"—");
+    $("#tk-hpi").textContent = "HPI " + pick(h,["hpi_latest"],"—");
+    const counts = pick(h, ["counts"], {});
+    const parts = [];
+    if (counts.parcels!=null) parts.push(fmtNum(counts.parcels) + " parcelas");
+    if (counts.sales!=null) parts.push(fmtNum(counts.sales) + " ventas");
+    $("#tk-counts").textContent = parts.join(" · ");
+    const mode = pick(h, ["llm_mode"], "deterministic");
+    const tag = document.createElement("span");
+    tag.className = "tag " + (mode === "claude" ? "live" : "det");
+    tag.textContent = mode === "claude" ? "Claude activo" : "Modo determinista";
+    $("#tk-mode").innerHTML = "";
+    $("#tk-mode").appendChild(tag);
+  }catch(err){
+    $("#tk-run").textContent = "sin conexión con la API";
+    $("#tk-hpi").textContent = "";
+    $("#tk-counts").textContent = "";
+  }
+}
+
+/* ============================================================
+   6. CHAT
+   ============================================================ */
+const EXAMPLE_PROMPTS = [
+  "¿Cuánto vale la parcela 0526301100 y qué decide el agente?",
+  "Muéstrame comparables de 0527105010",
+  "Casas de 3 habitaciones en Northridge Heights por menos de 400 mil",
+  "¿Cómo ha evolucionado el mercado en Ames desde 2015?",
+  "¿Cómo funciona la función de recompensa?"
+];
+let chatHistory = [];
+
+function initChatChips(){
+  const wrap = $("#chat-chips");
+  EXAMPLE_PROMPTS.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = p;
+    b.addEventListener("click", () => { $("#chat-input").value = p; submitChat(); });
+    wrap.appendChild(b);
+  });
+}
+
+function appendMessage(role, html){
+  const log = $("#chat-log");
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.innerHTML =
+    '<div class="who">' + (role==="user" ? "Vos" : "SAVI") + '</div>' +
+    '<div class="bubble">' + html + '</div>';
+  log.appendChild(div);
+  div.scrollIntoView({block:"end", behavior:"smooth"});
+  return div;
+}
+
+function renderEvidenceInto(container, evidence){
+  if (!evidence) return;
+  const parcels = evidence.parcels || [];
+  const sales = evidence.sales || [];
+  const areas = evidence.areas || [];
+  if (!parcels.length && !sales.length && !areas.length) return;
+
+  const wrap = document.createElement("div");
+  wrap.className = "evidence";
+
+  const cardsWrap = document.createElement("div");
+  cardsWrap.className = "evidence-cards";
+  parcels.forEach(p => {
+    const c = document.createElement("div");
+    c.className = "ecard";
+    const dec = pick(p, ["agent_decision.final","final","decision.final","decision"]);
+    c.innerHTML =
+      '<div class="pid">' + escapeHtml(pick(p,["pid"],"?")) + '</div>' +
+      '<div>' + escapeHtml(pick(p,["neighborhood"],"")) + '</div>' +
+      '<div class="num">' + fmtUSD(pick(p,["avm_value_today","avm_today","value"])) + '</div>' +
+      (dec ? decisionBadge(dec) : "");
+    cardsWrap.appendChild(c);
+  });
+  sales.forEach(s => {
+    const c = document.createElement("div");
+    c.className = "ecard";
+    c.innerHTML =
+      '<div class="pid">' + escapeHtml(pick(s,["pid"],"venta")) + '</div>' +
+      '<div>' + escapeHtml(pick(s,["neighborhood"],"")) + '</div>' +
+      '<div class="num">' + fmtUSD(pick(s,["price_today","price"])) + '</div>';
+    cardsWrap.appendChild(c);
+  });
+  areas.forEach(a => {
+    const c = document.createElement("div");
+    c.className = "ecard";
+    c.innerHTML =
+      '<div class="pid">' + escapeHtml(pick(a,["neighborhood","subdivision"],"zona")) + '</div>' +
+      '<div class="num">mediana ' + fmtUSD(pick(a,["median_avm_today","median_price_today"])) + '</div>';
+    cardsWrap.appendChild(c);
+  });
+  if (cardsWrap.children.length) wrap.appendChild(cardsWrap);
+
+  const geoPoints = []
+    .concat(parcels.map(p => [pick(p,["lat"]), pick(p,["lon"]), pick(p,["pid"]), pick(p,["final","decision.final"])]))
+    .concat(sales.map(s => [pick(s,["lat"]), pick(s,["lon"]), pick(s,["pid"],"venta"), null]))
+    .concat(areas.map(a => [pick(a,["lat"]), pick(a,["lon"]), pick(a,["neighborhood"],"zona"), null]))
+    .filter(p => p[0]!=null && p[1]!=null);
+
+  if (geoPoints.length){
+    const mapDiv = document.createElement("div");
+    mapDiv.className = "map small";
+    const mapId = "chat-map-" + Math.random().toString(36).slice(2);
+    mapDiv.id = mapId;
+    wrap.appendChild(mapDiv);
+    container.appendChild(wrap);
+    requestAnimationFrame(() => {
+      const map = getMap(mapId);
+      if (!map) return;
+      geoPoints.forEach(([lat,lon,label,dec]) => addPin(map, lat, lon, pinColor(dec), escapeHtml(String(label))));
+      fitPins(map, geoPoints.map(p=>[p[0],p[1]]));
+    });
+  } else {
+    container.appendChild(wrap);
+  }
+}
+
+function renderToolTrace(container, toolCalls){
+  if (!toolCalls || !toolCalls.length) return;
+  const det = document.createElement("details");
+  det.className = "trace";
+  const summary = document.createElement("summary");
+  summary.textContent = "Herramientas usadas (" + toolCalls.length + ")";
+  det.appendChild(summary);
+  toolCalls.forEach(tc => {
+    const item = document.createElement("div");
+    item.className = "trace-item";
+    item.innerHTML =
+      '<span class="name">' + escapeHtml(pick(tc,["name"],"tool")) + "</span> " +
+      escapeHtml(JSON.stringify(pick(tc,["input"],{}))) +
+      (tc.summary ? ("<br>" + escapeHtml(tc.summary)) : "");
+    det.appendChild(item);
+  });
+  container.appendChild(det);
+}
+
+async function submitChat(){
+  const input = $("#chat-input");
+  const message = input.value.trim();
+  if (!message) return;
+  const sendBtn = $("#chat-send");
+  appendMessage("user", "<p>" + escapeHtml(message) + "</p>");
+  input.value = "";
+  sendBtn.disabled = true;
+  setStatus($("#chat-status"), "", "SAVI está consultando los datos…");
+
+  try{
+    const data = await api("/api/chat", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({message, history: chatHistory})
+    });
+    const answer = pick(data, ["answer"], "");
+    const mode = pick(data, ["mode"], "deterministic");
+    const bubbleHtml = renderMarkdown(answer) +
+      '<div style="margin-top:.5rem;"><span class="badge ' + (mode==="claude"?"claude":"deterministic") + '">' +
+      (mode === "claude" ? "Claude" : "Modo determinista") + "</span></div>";
+    const msgEl = appendMessage("agent", bubbleHtml);
+    const bubble = $(".bubble", msgEl);
+    renderToolTrace(bubble, data.tool_calls);
+    renderEvidenceInto(bubble, data.evidence);
+
+    chatHistory.push({role:"user", content: message});
+    chatHistory.push({role:"assistant", content: answer});
+    setStatus($("#chat-status"), "", "");
+  }catch(err){
+    appendMessage("agent", '<p class="status error">No pude responder: ' + escapeHtml(err.message) + "</p>");
+    setStatus($("#chat-status"), "error", "");
+  }finally{
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+$("#chat-form").addEventListener("submit", e => { e.preventDefault(); submitChat(); });
+$("#chat-input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); submitChat(); }
+});
+
+/* ============================================================
+   7. PARCEL EXPLORER
+   ============================================================ */
+let currentParcel = null;
+
+function neighborhoodNote(precision){
+  const notes = {
+    exact: "Coordenadas exactas del predio.",
+    subdivision: "Ubicación aproximada: centroide de la urbanización.",
+    map_area: "Ubicación aproximada: centroide del área catastral.",
+    none: "Sin coordenadas disponibles para esta parcela."
+  };
+  return notes[precision] || "Precisión geográfica desconocida.";
+}
+
+function renderParcel(data){
+  currentParcel = data;
+  const p = pick(data, ["parcel"], data);
+  const dec = pick(data, ["agent_decision","decision"], data);
+
+  $("#p-pid").textContent = pick(p, ["pid"], "—");
+  const nb = pick(p, ["neighborhood"]);
+  $("#p-neighborhood").textContent = nb ? ("· " + nb) : "";
+
+  const avm = pick(p, ["avm_value_today"]);
+  const assessed = pick(p, ["assessed_2024"]);
+  const gap = pick(p, ["gap_vs_assessed"]);
+  $("#p-avm").textContent = fmtUSD(avm);
+  $("#p-assessed").textContent = fmtUSD(assessed);
+  $("#p-gap").textContent = gap!=null ? (gap>=0?"+":"") + fmtPct(gap) : "—";
+  $("#p-ppsf").textContent = pick(p,["price_per_sqft_today"])!=null ? "$"+fmtNum(p.price_per_sqft_today,1) : "—";
+
+  const finalDec = pick(dec, ["final","decision"]);
+  $("#p-decision-badge").innerHTML = decisionBadge(finalDec);
+  $("#p-geo").textContent = neighborhoodNote(pick(p,["geo_precision"]));
+
+  renderQBars($("#p-qbars"), qArrayOf(dec), finalDec);
+  const margin = pick(dec, ["margin"]);
+  $("#p-margin").textContent = margin!=null
+    ? "Margen entre la mejor y la segunda acción: " + fmtNum(margin,1)
+    : "";
+
+  const featureRows = [
+    ["Estilo", pick(p,["style"])],
+    ["Grado de construcción", pick(p,["grade"])],
+    ["Condición", pick(p,["condition_label"])],
+    ["Año de construcción", pick(p,["year_built"])],
+    ["Área habitable (ft²)", fmtNum(pick(p,["living_area"]))],
+    ["Habitaciones (total)", pick(p,["rooms_above"])],
+    ["Dormitorios (sobre/bajo nivel)", (pick(p,["beds_above"],"—")) + " / " + (pick(p,["beds_below"],"—"))],
+    ["Baños/plomería", pick(p,["n_plumbing"])],
+    ["Chimeneas", pick(p,["n_fireplaces"])],
+    ["Sótano", pick(p,["basement_type"])],
+    ["Garaje", pick(p,["garage_type"])],
+    ["Subdivisión", pick(p,["subdivision"])]
+  ];
+  $("#p-features").innerHTML = featureRows
+    .filter(([,v]) => v!=null && v!=="")
+    .map(([k,v]) => "<dt>"+escapeHtml(k)+"</dt><dd>"+escapeHtml(v)+"</dd>")
+    .join("");
+
+  const lat = pick(p,["lat"]), lon = pick(p,["lon"]);
+  requestAnimationFrame(() => {
+    const map = getMap("p-map");
+    if (!map) return;
+    if (lat!=null && lon!=null){
+      addPin(map, lat, lon, pinColor(finalDec), pick(p,["pid"]));
+      map.setView([lat,lon], 15);
+    } else {
+      map.setView([42.03,-93.62], 11);
+    }
+  });
+
+  $("#parcel-result").hidden = false;
+  $("#comps-result").hidden = true;
+  $("#whatif-result").hidden = true;
+}
+
+async function loadParcel(pid){
+  setStatus($("#parcel-status"), "", "Buscando parcela " + pid + "…");
+  $("#parcel-result").hidden = true;
+  try{
+    const data = await api("/api/parcel/" + encodeURIComponent(pid));
+    renderParcel(data);
+    setStatus($("#parcel-status"), "", "");
+  }catch(err){
+    setStatus($("#parcel-status"), "error", "No se encontró la parcela: " + err.message);
+  }
+}
+$("#parcel-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const pid = $("#pid-input").value.trim();
+  if (pid) loadParcel(pid);
+});
+
+$("#comps-btn").addEventListener("click", async () => {
+  const p = pick(currentParcel, ["parcel"], currentParcel);
+  const pid = pick(p, ["pid"]);
+  if (!pid) return;
+  setStatus($("#comps-status"), "", "Buscando comparables…");
+  $("#comps-result").hidden = true;
+  try{
+    const data = await api("/api/comps/" + encodeURIComponent(pid) + "?k=8");
+    const results = pick(data, ["results","comparables"], Array.isArray(data) ? data : []);
+    if (!results.length){
+      setStatus($("#comps-status"), "", "No se encontraron comparables para esta parcela.");
+      return;
+    }
+    const tbody = $("#comps-table tbody");
+    tbody.innerHTML = results.map(c => (
+      "<tr>" +
+      "<td class=\"mono\">" + escapeHtml(pick(c,["pid"],"—")) + "</td>" +
+      "<td>" + escapeHtml(pick(c,["neighborhood"],"—")) + "</td>" +
+      "<td>" + escapeHtml(fmtDate(pick(c,["sale_date"]))) + "</td>" +
+      "<td class=\"num\">" + fmtUSD(pick(c,["price"])) + "</td>" +
+      "<td class=\"num\">" + fmtUSD(pick(c,["price_today"])) + "</td>" +
+      "<td class=\"num\">" + fmtNum(pick(c,["gr_liv_area","living_area"])) + "</td>" +
+      "<td class=\"num\">" + (pick(c,["similarity"])!=null ? fmtPct(pick(c,["similarity"])) : "—") + "</td>" +
+      "</tr>"
+    )).join("");
+
+    requestAnimationFrame(() => {
+      const map = getMap("comps-map");
+      if (!map) return;
+      const pts = [];
+      const plat = pick(p,["lat"]), plon = pick(p,["lon"]);
+      if (plat!=null && plon!=null){
+        addPin(map, plat, plon, "#c9a84c", "Sujeto " + pid);
+        pts.push([plat,plon]);
+      }
+      results.forEach(c => {
+        const lat = pick(c,["lat"]), lon = pick(c,["lon"]);
+        if (lat!=null && lon!=null){
+          addPin(map, lat, lon, "#9aa3ac", escapeHtml(pick(c,["pid"],"")));
+          pts.push([lat,lon]);
+        }
+      });
+      fitPins(map, pts);
+    });
+
+    $("#comps-result").hidden = false;
+    setStatus($("#comps-status"), "", "");
+  }catch(err){
+    setStatus($("#comps-status"), "error", "Error al buscar comparables: " + err.message);
+  }
+});
+
+let areasLoaded = false;
+async function loadAreasForWhatIf(){
+  areasLoaded = true;
+  try{
+    const data = await api("/api/areas");
+    const list = pick(data, ["neighborhoods"], Array.isArray(data)?data:[]);
+    const sel = $("#wi-neighborhood");
+    list
+      .slice()
+      .sort((a,b) => String(pick(a,["neighborhood"],"")).localeCompare(String(pick(b,["neighborhood"],""))))
+      .forEach(a => {
+        const opt = document.createElement("option");
+        const name = pick(a,["neighborhood"]);
+        opt.value = name; opt.textContent = name;
+        sel.appendChild(opt);
+      });
+  }catch(err){ /* non-fatal: what-if still works without the dropdown populated */ }
+}
+
+$("#whatif-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const p = pick(currentParcel, ["parcel"], currentParcel);
+  const pid = pick(p, ["pid"]);
+  const body = {};
+  if (pid) body.pid = pid;
+  const la = $("#wi-living-area").value; if (la) body.living_area = Number(la);
+  const yb = $("#wi-year-built").value; if (yb) body.year_built = Number(yb);
+  const bd = $("#wi-beds").value; if (bd) body.beds_above = Number(bd);
+  const gr = $("#wi-grade").value.trim(); if (gr) body.grade_base = gr;
+  const cd = $("#wi-condition").value; if (cd) body.condition = cd;
+  const nb = $("#wi-neighborhood").value; if (nb) body.neighborhood = nb;
+
+  setStatus($("#whatif-status"), "", "Recalculando…");
+  $("#whatif-result").hidden = true;
+  try{
+    const data = await api("/api/valuate", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    const val = pick(data, ["avm_value_today","value","valuation"]);
+    $("#wi-value").textContent = fmtUSD(val);
+    const mape = pick(data, ["mape"], 0.0776);
+    $("#wi-range").textContent = (val!=null)
+      ? fmtUSD(val*(1-mape)) + " – " + fmtUSD(val*(1+mape))
+      : "—";
+    $("#wi-cluster").textContent = pick(data, ["cluster"], "—");
+    const finalDec = pick(data, ["final","decision.final","decision"]);
+    $("#wi-decision-badge").innerHTML = decisionBadge(finalDec);
+    renderQBars($("#wi-qbars"), qArrayOf(data.q_values ? data : (data.decision || {})), finalDec);
+    $("#whatif-result").hidden = false;
+    setStatus($("#whatif-status"), "", "");
+  }catch(err){
+    setStatus($("#whatif-status"), "error", "No se pudo recalcular: " + err.message);
+  }
+});
+
+/* ============================================================
+   8. MARKET — inline SVG line charts
+   ============================================================ */
+let marketLoaded = false;
+function lineChartSVG(series, xKey, yKey, color, width, height){
+  width = width || 420; height = height || 160;
+  const pad = {l:48, r:12, t:10, b:22};
+  const xs = series.map(d => d[xKey]);
+  const ys = series.map(d => d[yKey]);
+  const yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+  const yPad = (yMax - yMin) * 0.08 || 1;
+  const x = i => pad.l + (i/(series.length-1)) * (width-pad.l-pad.r);
+  const y = v => height-pad.b - ((v-(yMin-yPad))/((yMax+yPad)-(yMin-yPad))) * (height-pad.t-pad.b);
+  let path = "";
+  series.forEach((d,i) => { path += (i===0?"M":"L") + x(i).toFixed(1) + "," + y(d[yKey]).toFixed(1) + " "; });
+
+  const gridY = [yMin, (yMin+yMax)/2, yMax];
+  let gridLines = gridY.map(v =>
+    '<line class="axis" x1="'+pad.l+'" x2="'+(width-pad.r)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'"/>' +
+    '<text x="4" y="'+(y(v)+4).toFixed(1)+'" font-size="10">'+fmtNum(v)+'</text>'
+  ).join("");
+
+  const firstLabel = xs[0], lastLabel = xs[xs.length-1];
+  let xLabels =
+    '<text x="'+pad.l+'" y="'+(height-4)+'" font-size="10">'+escapeHtml(firstLabel)+'</text>' +
+    '<text x="'+(width-pad.r)+'" y="'+(height-4)+'" font-size="10" text-anchor="end">'+escapeHtml(lastLabel)+'</text>';
+
+  return '<svg class="chart" viewBox="0 0 '+width+' '+height+'" width="100%" height="'+height+'" role="img" aria-label="Serie temporal">' +
+    gridLines + xLabels +
+    '<path class="series" d="'+path+'" stroke="'+color+'"/>' +
+    '</svg>';
+}
+
+async function loadMarket(){
+  marketLoaded = true;
+  setStatus($("#market-status"), "", "Cargando…");
+  try{
+    const data = await api("/api/market");
+    const hpi = pick(data, ["fhfa_hpi"], {});
+    const zhvi = pick(data, ["zillow_zhvi"], {});
+    const hpiSeries = pick(hpi, ["series"], []);
+    const zhviSeries = pick(zhvi, ["series"], []);
+
+    $("#market-hpi-kv").innerHTML =
+      "<dt>Último valor (" + escapeHtml(pick(hpi,["latest.period"],"")) + ")</dt><dd>" + fmtNum(pick(hpi,["latest.hpi","latest"]),2) + "</dd>" +
+      "<dt>Variación interanual</dt><dd>" + fmtPctPts(pick(hpi,["yoy_pct"])) + "</dd>" +
+      "<dt>Desde 2010</dt><dd>" + fmtPctPts(pick(hpi,["since_2010_pct"])) + "</dd>" +
+      "<dt>Fuente</dt><dd style=\"font-family:inherit\">" + escapeHtml(pick(hpi,["source"],"FHFA")) + "</dd>";
+    $("#market-zhvi-kv").innerHTML =
+      "<dt>Último valor (" + escapeHtml(pick(zhvi,["latest.month"],"")) + ")</dt><dd>" + fmtUSD(pick(zhvi,["latest.zhvi","latest"])) + "</dd>" +
+      "<dt>Variación interanual</dt><dd>" + fmtPctPts(pick(zhvi,["yoy_pct"])) + "</dd>" +
+      "<dt>Fuente</dt><dd style=\"font-family:inherit\">" + escapeHtml(pick(zhvi,["source"],"Zillow")) + "</dd>";
+
+    if (hpiSeries.length) $("#market-hpi-chart").innerHTML = lineChartSVG(hpiSeries, "period", "hpi", "#c9a84c");
+    if (zhviSeries.length) $("#market-zhvi-chart").innerHTML = lineChartSVG(zhviSeries, "month", "zhvi", "#7fb3d9");
+
+    $("#market-result").hidden = false;
+    setStatus($("#market-status"), "", "");
+  }catch(err){
+    setStatus($("#market-status"), "error", "No se pudo cargar el mercado: " + err.message);
+  }
+}
+
+/* ============================================================
+   9. MODEL CARD
+   ============================================================ */
+let modelLoaded = false;
+async function loadModel(){
+  modelLoaded = true;
+  setStatus($("#model-status"), "", "Cargando…");
+  try{
+    const data = await api("/api/model");
+    const avm = pick(data, ["avm_metrics","avm"], data);
+    $("#model-avm-kv").innerHTML = [
+      ["R² (escala log)", fmtNum(pick(avm,["r2_log"]),3)],
+      ["R² (USD)", fmtNum(pick(avm,["r2_usd"]),3)],
+      ["MAE (USD)", fmtUSD(pick(avm,["mae_usd"]))],
+      ["MAPE", fmtPct(pick(avm,["mape"]))],
+      ["Silhouette K-Means (k=6)", fmtNum(pick(data,["kmeans_silhouette"]),3)]
+    ].map(([k,v]) => "<dt>"+k+"</dt><dd>"+v+"</dd>").join("");
+
+    const rule = pick(data, ["selected_rule","policy.selected_rule"]);
+    $("#model-policy-kv").innerHTML = [
+      ["Regla seleccionada", escapeHtml(rule||"—")],
+      ["Umbral (gated_tau)", pick(data,["gated_tau"])!=null ? fmtNum(pick(data,["gated_tau"]),1) : "n/a"],
+      ["Reward prueba", fmtNum(pick(data,["test_reward.reward","test.reward"]),1) + ciText(pick(data,["test_reward.ci95","test.ci95"]))],
+      ["Δ vs. VI (prueba)", fmtNum(pick(data,["test_reward.delta_vs_vi","test.delta_vs_vi"]),1) + ciText(pick(data,["test_reward.delta_vs_vi_ci95","test.delta_vs_vi_ci95"]))],
+      ["¿Diferencia significativa?", pick(data,["test_reward.delta_significant","test.delta_significant"]) ? "sí" : "no (IC95% incluye 0)"]
+    ].map(([k,v]) => "<dt>"+k+"</dt><dd>"+v+"</dd>").join("");
+
+    const rules = pick(data, ["rules_reward","rules"], {});
+    const tbody = $("#model-rules-table tbody");
+    tbody.innerHTML = Object.keys(rules).map(name => {
+      const r = rules[name];
+      return "<tr><td class=\"mono\">" + escapeHtml(name) + "</td>" +
+        "<td class=\"num\">" + fmtNum(pick(r,["train"]),1) + "</td>" +
+        "<td class=\"num\">" + fmtNum(pick(r,["val"]),1) + "</td>" +
+        "<td class=\"num\">" + fmtNum(pick(r,["test"]),1) + "</td></tr>";
+    }).join("") || "<tr><td colspan=\"4\">Sin datos de reglas disponibles.</td></tr>";
+
+    const reward = pick(data, ["reward_function"], {});
+    $("#model-reward-kv").innerHTML = Object.keys(reward).length
+      ? Object.keys(reward).map(k => "<dt>"+decisionBadge(k)+"</dt><dd style=\"text-align:left; font-family:inherit;\">"+escapeHtml(reward[k])+"</dd>").join("")
+      : "<dt>—</dt><dd>sin información</dd>";
+
+    $("#model-sources").innerHTML = [
+      "Padrón catastral del condado de Story, Iowa (2024) — 18,078 parcelas.",
+      "Ames Housing dataset (De Cock, 2011) — 2,930 ventas reales con atributos de construcción.",
+      "FHFA All-Transactions House Price Index, área metropolitana de Ames (CBSA 11180).",
+      "Zillow Home Value Index (ZHVI), serie mensual."
+    ].map(s => "<li>"+s+"</li>").join("");
+
+    $("#model-limits").innerHTML = [
+      "El AVM se entrenó sobre ventas reales 2006–2010; la actualización a valor presente usa índices de mercado agregados, no transacciones recientes locales.",
+      "La política de decisión (RL) no mostró una mejora estadísticamente significativa sobre la línea base de valor-iteración en el conjunto de prueba (intervalo de confianza del 95% incluye cero).",
+      "Las parcelas sin coordenadas exactas (geo_precision ≠ exact) se ubican en el mapa con el centroide de su urbanización o área catastral, no su dirección real.",
+      "El modo determinista (sin clave de Anthropic) redacta respuestas con plantillas fijas; no reformula ni razona libremente sobre la evidencia recuperada.",
+      "Este sistema es un proyecto académico: no reemplaza un avalúo profesional ni debe usarse para decisiones financieras reales."
+    ].map(s => "<li>"+s+"</li>").join("");
+
+    $("#model-result").hidden = false;
+    setStatus($("#model-status"), "", "");
+  }catch(err){
+    setStatus($("#model-status"), "error", "No se pudo cargar la ficha del modelo: " + err.message);
+  }
+}
+
+/* ============================================================
+   10. BOOTSTRAP
+   ============================================================ */
+initChatChips();
+loadHealth();
+showView("chat");
+
+})();
+</script>
+</body>
+</html>
