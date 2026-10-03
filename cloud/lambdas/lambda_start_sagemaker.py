@@ -104,6 +104,7 @@ def build_training_job_request(run_id: str, instance_type: str, image_uri: str, 
         "sagemaker_container_log_level": json.dumps(20),
         "epochs": json.dumps(epochs),
         "run-id": json.dumps(run_id),
+        "publish-prefix": json.dumps(f"s3://{processed_bucket}/{_RUNS_PREFIX}{run_id}/"),
     }
 
     request = {

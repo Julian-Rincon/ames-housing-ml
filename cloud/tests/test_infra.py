@@ -176,6 +176,96 @@ def test_dry_run_without_credentials_exits_zero():
     assert "123456789012" in result.stdout
 
 
+def test_dry_run_includes_api_step():
+    """El dry-run completo debe incluir el despliegue de la Lambda 'savi-api'
+    (zip, log group, concurrencia reservada, Function URL y permisos públicos)."""
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith("AWS_") and k != "AWS_PROFILE"
+    }
+    env["PATH"] = os.environ.get("PATH", "")
+
+    result = subprocess.run(
+        [sys.executable, str(INFRA_DIR / "deploy.py"), "--dry-run", "--account-id", "123456789012"],
+        cwd=str(CLOUD_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+    assert "savi-api" in result.stdout + result.stderr
+    assert "savi-api-url-public" in result.stdout + result.stderr
+    assert "savi-api-invoke-public" in result.stdout + result.stderr
+    assert "put_function_concurrency" in result.stdout + result.stderr
+    assert "Function URL" in result.stdout + result.stderr
+    assert "api_url:" in result.stdout
+
+
+def test_dry_run_only_api_skips_other_steps():
+    """`--only-api` no debe mencionar los pasos de buckets/EC2/SageMaker/lambdas 1-2."""
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith("AWS_") and k != "AWS_PROFILE"
+    }
+    env["PATH"] = os.environ.get("PATH", "")
+
+    result = subprocess.run(
+        [sys.executable, str(INFRA_DIR / "deploy.py"), "--dry-run", "--account-id", "123456789012", "--only-api"],
+        cwd=str(CLOUD_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+    assert "only-api: True" in result.stdout + result.stderr
+    assert "savi-api" in result.stdout + result.stderr
+    assert "crear/asegurar bucket" not in result.stdout + result.stderr
+    assert "run_instances" not in result.stdout + result.stderr
+
+
+# --------------------------------------------------------------------------- #
+# SAVI Agent API: env vars, CORS, permisos de Function URL (funciones puras)
+# --------------------------------------------------------------------------- #
+
+def test_api_lambda_env_vars_contains_required_keys():
+    env_vars = deploy.api_lambda_env_vars("savi-processed-006840014780")
+    assert env_vars["SAVI_PROCESSED_BUCKET"] == "savi-processed-006840014780"
+    assert env_vars["SAVI_LLM_MODEL"] == "claude-opus-5"
+    assert env_vars["SAVI_LLM_EFFORT"] == "medium"
+    assert env_vars["SAVI_MAX_AGENT_TURNS"] == "6"
+    assert env_vars["SAVI_SSM_KEY_PARAM"] == "/savi/anthropic_api_key"
+
+
+def test_api_function_url_cors_config():
+    cors = deploy.api_function_url_cors_config()
+    assert cors["AllowOrigins"] == ["*"]
+    assert set(cors["AllowMethods"]) == {"GET", "POST"}
+    assert cors["AllowHeaders"] == ["content-type"]
+    assert cors["MaxAge"] == 86400
+
+
+def test_api_url_permission_statements_both_required():
+    statements = deploy.api_url_permission_statements("savi-api")
+    by_id = {s["StatementId"]: s for s in statements}
+    assert set(by_id) == {"savi-api-url-public", "savi-api-invoke-public"}
+
+    url_stmt = by_id["savi-api-url-public"]
+    assert url_stmt["Action"] == "lambda:InvokeFunctionUrl"
+    assert url_stmt["Principal"] == "*"
+    assert url_stmt["FunctionUrlAuthType"] == "NONE"
+
+    invoke_stmt = by_id["savi-api-invoke-public"]
+    assert invoke_stmt["Action"] == "lambda:InvokeFunction"
+    assert invoke_stmt["Principal"] == "*"
+    assert "FunctionUrlAuthType" not in invoke_stmt
+
+
 # --------------------------------------------------------------------------- #
 # IAM JSONs
 # --------------------------------------------------------------------------- #

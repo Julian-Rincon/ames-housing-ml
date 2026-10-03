@@ -47,6 +47,7 @@ INFRA_DIR = Path(__file__).resolve().parent
 CLOUD_ROOT = INFRA_DIR.parent
 LAMBDAS_DIR = CLOUD_ROOT / "lambdas"
 EC2_DIR = CLOUD_ROOT / "ec2"
+API_DIR = CLOUD_ROOT / "api"
 
 REGION_DEFAULT = "us-east-1"
 AMI_SSM_PARAM = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
@@ -76,6 +77,20 @@ CPU_IMAGE_URI = (
 
 SAGEMAKER_INSTANCE_TYPE = "ml.g4dn.xlarge"
 SAGEMAKER_FALLBACK_INSTANCE_TYPE = "ml.m5.xlarge"
+
+# -- SAVI Agent API (Lambda Function URL) -- ver RAG_CONTRACT.md -- #
+API_LAMBDA_NAME = "savi-api"
+API_LAMBDA_HANDLER = "handler.handler"
+API_LAMBDA_LOG_GROUP = f"/aws/lambda/{API_LAMBDA_NAME}"
+API_LAMBDA_MEMORY = 1024
+API_LAMBDA_TIMEOUT = 180  # Opus + hasta 6 turnos de herramientas (Function URL admite 15 min)
+API_LAMBDA_RESERVED_CONCURRENCY = 5
+API_SSM_KEY_PARAM = "/savi/anthropic_api_key"
+API_LLM_MODEL_DEFAULT = "claude-opus-5"
+API_LLM_EFFORT_DEFAULT = "medium"
+API_MAX_AGENT_TURNS_DEFAULT = "6"
+API_URL_STATEMENT_ID = "savi-api-url-public"
+API_INVOKE_STATEMENT_ID = "savi-api-invoke-public"
 
 DEPLOYMENT_JSON = INFRA_DIR / "deployment.json"
 
@@ -203,6 +218,51 @@ def bucket_names(account_id: str) -> tuple[str, str]:
     return f"savi-raw-{account_id}", f"savi-processed-{account_id}"
 
 
+def api_lambda_env_vars(processed_bucket: str) -> dict[str, str]:
+    """Env vars de la Lambda `savi-api` (ver RAG_CONTRACT.md)."""
+    return {
+        "SAVI_PROCESSED_BUCKET": processed_bucket,
+        "SAVI_LLM_MODEL": API_LLM_MODEL_DEFAULT,
+        "SAVI_LLM_EFFORT": API_LLM_EFFORT_DEFAULT,
+        "SAVI_MAX_AGENT_TURNS": API_MAX_AGENT_TURNS_DEFAULT,
+        "SAVI_SSM_KEY_PARAM": API_SSM_KEY_PARAM,
+    }
+
+
+def api_function_url_cors_config() -> dict:
+    """Configuración CORS de la Function URL pública de `savi-api`."""
+    return {
+        "AllowOrigins": ["*"],
+        "AllowMethods": ["GET", "POST"],
+        "AllowHeaders": ["content-type"],
+        "MaxAge": 86400,
+    }
+
+
+def api_url_permission_statements(function_name: str) -> list[dict]:
+    """
+    Los DOS statements de `add_permission` requeridos para que una Function URL
+    con AuthType=NONE sea realmente invocable públicamente: uno para
+    `lambda:InvokeFunctionUrl` (condicionado a FunctionUrlAuthType=NONE) y otro
+    para `lambda:InvokeFunction` con Principal "*".
+    """
+    return [
+        {
+            "FunctionName": function_name,
+            "StatementId": API_URL_STATEMENT_ID,
+            "Action": "lambda:InvokeFunctionUrl",
+            "Principal": "*",
+            "FunctionUrlAuthType": "NONE",
+        },
+        {
+            "FunctionName": function_name,
+            "StatementId": API_INVOKE_STATEMENT_ID,
+            "Action": "lambda:InvokeFunction",
+            "Principal": "*",
+        },
+    ]
+
+
 # --------------------------------------------------------------------------- #
 # Deployer
 # --------------------------------------------------------------------------- #
@@ -325,6 +385,7 @@ class SaviDeployer:
         code_cpu_files = [
             (CLOUD_ROOT / "utils.py", "code/cpu/utils.py"),
             (CLOUD_ROOT / "savi_cpu_pipeline.py", "code/cpu/savi_cpu_pipeline.py"),
+            (CLOUD_ROOT / "savi_rag_export.py", "code/cpu/savi_rag_export.py"),
             (CLOUD_ROOT / "requirements-ec2.txt", "code/cpu/requirements-ec2.txt"),
             (EC2_DIR / "run_pipeline.sh", "code/cpu/run_pipeline.sh"),
         ]
@@ -377,7 +438,7 @@ class SaviDeployer:
     # -- paso d: log groups --------------------------------------------------- #
 
     def ensure_log_groups(self) -> None:
-        log_groups = [EC2_LOG_GROUP, LAMBDA1_LOG_GROUP, LAMBDA2_LOG_GROUP]
+        log_groups = [EC2_LOG_GROUP, LAMBDA1_LOG_GROUP, LAMBDA2_LOG_GROUP, API_LAMBDA_LOG_GROUP]
         if self.dry_run:
             for lg in log_groups:
                 log.info("[dry-run] asegurar log group '%s' con retención %sd", lg, LOG_RETENTION_DAYS)
@@ -727,10 +788,171 @@ class SaviDeployer:
         s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=config)
         log.info("Notificación S3 configurada en '%s'", bucket)
 
+    # -- paso i: SAVI Agent API (Lambda `savi-api` + Function URL) ------------- #
+
+    def build_api_zip_bytes(self) -> bytes:
+        """Construye `api/build/savi-api.zip` (handler.py + savi_api/ + static/ + anthropic)."""
+        if str(API_DIR) not in sys.path:
+            sys.path.insert(0, str(API_DIR))
+        import build_lambda  # import perezoso: sólo lo necesita este paso
+
+        zip_path = build_lambda.build()
+        return zip_path.read_bytes()
+
+    def ensure_lambda_from_zip(
+        self,
+        name: str,
+        zip_bytes: bytes,
+        handler: str,
+        timeout: int,
+        memory: int,
+        env_vars: dict[str, str],
+        role_arn: str,
+    ) -> str:
+        """Igual que `ensure_lambda`, pero recibe el zip ya construido en memoria
+        (la Lambda API se empaqueta con `build_lambda.py`, no es un único .py)."""
+        lam = self._client("lambda")
+        exists = True
+        try:
+            lam.get_function(FunctionName=name)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") == "ResourceNotFoundException":
+                exists = False
+            else:
+                raise
+
+        if exists:
+            lam.update_function_code(FunctionName=name, ZipFile=zip_bytes)
+            self._wait_lambda(lam, name, "function_updated")
+            lam.update_function_configuration(
+                FunctionName=name,
+                Runtime="python3.12",
+                Role=role_arn,
+                Handler=handler,
+                Timeout=timeout,
+                MemorySize=memory,
+                Environment={"Variables": env_vars},
+            )
+            self._wait_lambda(lam, name, "function_updated")
+            log.info("Lambda '%s' actualizada", name)
+        else:
+            self._create_lambda_with_retry(lam, name, zip_bytes, handler, timeout, memory, env_vars, role_arn)
+            self._wait_lambda(lam, name, "function_active_v2")
+            log.info("Lambda '%s' creada", name)
+
+        return lam.get_function(FunctionName=name)["Configuration"]["FunctionArn"]
+
+    def ensure_api_reserved_concurrency(self, function_name: str, concurrency: int) -> None:
+        if self.dry_run:
+            log.info("[dry-run] put_function_concurrency('%s', %s)", function_name, concurrency)
+            return
+        lam = self._client("lambda")
+        try:
+            lam.put_function_concurrency(FunctionName=function_name, ReservedConcurrentExecutions=concurrency)
+            log.info("Concurrencia reservada de '%s' fijada en %s", function_name, concurrency)
+        except ClientError as exc:
+            log.warning(
+                "No se pudo fijar la concurrencia reservada de '%s' (se continúa sin ella): %s",
+                function_name, exc,
+            )
+
+    def ensure_api_function_url(self, function_name: str) -> str:
+        if self.dry_run:
+            log.info(
+                "[dry-run] crear/actualizar Function URL AuthType=NONE + CORS (%s) para '%s'",
+                api_function_url_cors_config(), function_name,
+            )
+            return f"https://dryrun.lambda-url.{self.region}.on.aws/"
+
+        lam = self._client("lambda")
+        cors = api_function_url_cors_config()
+        try:
+            resp = lam.create_function_url_config(FunctionName=function_name, AuthType="NONE", Cors=cors)
+            log.info("Function URL creada para '%s'", function_name)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") == "ResourceConflictException":
+                lam.update_function_url_config(FunctionName=function_name, AuthType="NONE", Cors=cors)
+                resp = lam.get_function_url_config(FunctionName=function_name)
+                log.info("Function URL de '%s' ya existía, configuración actualizada", function_name)
+            else:
+                raise
+        return resp["FunctionUrl"]
+
+    def ensure_api_public_permissions(self, function_name: str) -> None:
+        if self.dry_run:
+            log.info(
+                "[dry-run] add_permission x2 en '%s' (statements: %s, %s)",
+                function_name, API_URL_STATEMENT_ID, API_INVOKE_STATEMENT_ID,
+            )
+            return
+        lam = self._client("lambda")
+        for statement in api_url_permission_statements(function_name):
+            try:
+                lam.add_permission(**statement)
+                log.info("Permiso público '%s' agregado a '%s'", statement["StatementId"], function_name)
+            except ClientError as exc:
+                if exc.response.get("Error", {}).get("Code") == "ResourceConflictException":
+                    log.info("El permiso '%s' ya existía en '%s'", statement["StatementId"], function_name)
+                else:
+                    raise
+
+    def deploy_api_lambda(self, processed_bucket: str, role_arn: str) -> dict[str, str]:
+        """Orquesta el despliegue completo de la Lambda `savi-api` (zip, función,
+        log group, concurrencia reservada, Function URL y permisos públicos)."""
+        env_vars = api_lambda_env_vars(processed_bucket)
+
+        if self.dry_run:
+            log.info(
+                "[dry-run] construir api/build/savi-api.zip y crear/actualizar Lambda '%s' "
+                "(handler=%s, %sMB, %ss, env=%s)",
+                API_LAMBDA_NAME, API_LAMBDA_HANDLER, API_LAMBDA_MEMORY, API_LAMBDA_TIMEOUT, sorted(env_vars),
+            )
+            log.info("[dry-run] asegurar log group '%s' con retención %sd", API_LAMBDA_LOG_GROUP, LOG_RETENTION_DAYS)
+            self.ensure_api_reserved_concurrency(API_LAMBDA_NAME, API_LAMBDA_RESERVED_CONCURRENCY)
+            api_url = self.ensure_api_function_url(API_LAMBDA_NAME)
+            self.ensure_api_public_permissions(API_LAMBDA_NAME)
+            return {
+                "lambda_name": API_LAMBDA_NAME,
+                "lambda_arn": f"arn:aws:lambda:{self.region}:DRYRUN:function:{API_LAMBDA_NAME}",
+                "api_url": api_url,
+            }
+
+        zip_bytes = self.build_api_zip_bytes()
+        lambda_arn = self.ensure_lambda_from_zip(
+            API_LAMBDA_NAME, zip_bytes, API_LAMBDA_HANDLER, API_LAMBDA_TIMEOUT, API_LAMBDA_MEMORY,
+            env_vars, role_arn,
+        )
+
+        logs = self._client("logs")
+        try:
+            logs.create_log_group(logGroupName=API_LAMBDA_LOG_GROUP)
+            log.info("Log group '%s' creado", API_LAMBDA_LOG_GROUP)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") != "ResourceAlreadyExistsException":
+                raise
+        logs.put_retention_policy(logGroupName=API_LAMBDA_LOG_GROUP, retentionInDays=LOG_RETENTION_DAYS)
+
+        self.ensure_api_reserved_concurrency(API_LAMBDA_NAME, API_LAMBDA_RESERVED_CONCURRENCY)
+        api_url = self.ensure_api_function_url(API_LAMBDA_NAME)
+        self.ensure_api_public_permissions(API_LAMBDA_NAME)
+
+        return {"lambda_name": API_LAMBDA_NAME, "lambda_arn": lambda_arn, "api_url": api_url}
+
 
 # --------------------------------------------------------------------------- #
 # Orquestación
 # --------------------------------------------------------------------------- #
+
+def _load_existing_deployment_state() -> dict[str, Any]:
+    """Lee `infra/deployment.json` si existe, para no perder campos de otros pasos
+    (usado por `--only-api`, que no vuelve a tocar EC2/buckets/lambdas 1 y 2)."""
+    if DEPLOYMENT_JSON.is_file():
+        try:
+            return json.loads(DEPLOYMENT_JSON.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            log.warning("No se pudo leer %s (JSON inválido); se parte de un estado vacío", DEPLOYMENT_JSON)
+    return {}
+
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     deployer = SaviDeployer(
@@ -743,7 +965,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     log.info("== SAVI Cloud: despliegue de infraestructura ==")
-    log.info("Región: %s | dry-run: %s", args.region, args.dry_run)
+    log.info("Región: %s | dry-run: %s | only-api: %s", args.region, args.dry_run, args.only_api)
 
     account_id = deployer.resolve_account_id()
     raw_bucket, processed_bucket = bucket_names(account_id)
@@ -751,6 +973,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     log.info("Cuenta: %s | bucket raw: %s | bucket processed: %s", account_id, raw_bucket, processed_bucket)
     log.info("Rol usado para EC2/Lambdas: %s", role_arn)
+
+    if args.only_api:
+        log.info("--only-api: se omiten buckets/EC2/SageMaker/lambdas 1 y 2 — sólo se despliega 'savi-api'")
+        api_state = deployer.deploy_api_lambda(processed_bucket, role_arn)
+        deployment_state = _load_existing_deployment_state()
+        deployment_state.update(
+            {
+                "account_id": account_id,
+                "region": args.region,
+                "dry_run": args.dry_run,
+                "raw_bucket": raw_bucket,
+                "processed_bucket": processed_bucket,
+                "role_arn": role_arn,
+            }
+        )
+        deployment_state.update(api_state)
+        return deployment_state
+
     if args.create_roles:
         log.warning(
             "--create-roles fue pasado: se intentará crear roles least-privilege desde infra/iam/*.json. "
@@ -792,6 +1032,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     deployer.ensure_bucket_notification(raw_bucket, build_raw_notification_config(lambda1_arn))
     deployer.ensure_bucket_notification(processed_bucket, build_processed_notification_config(lambda2_arn))
 
+    api_state = deployer.deploy_api_lambda(processed_bucket, role_arn)
+
     deployment_state = {
         "account_id": account_id,
         "region": args.region,
@@ -805,12 +1047,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "lambda1_arn": lambda1_arn,
         "lambda2_name": LAMBDA2_NAME,
         "lambda2_arn": lambda2_arn,
-        "log_groups": [EC2_LOG_GROUP, LAMBDA1_LOG_GROUP, LAMBDA2_LOG_GROUP],
+        "log_groups": [EC2_LOG_GROUP, LAMBDA1_LOG_GROUP, LAMBDA2_LOG_GROUP, API_LAMBDA_LOG_GROUP],
         "sample_trigger_command": (
             f"aws s3 cp data/input/AmesHousing.txt "
             f"s3://{raw_bucket}/input/AmesHousing.txt"
         ),
     }
+    deployment_state.update(api_state)
     return deployment_state
 
 
@@ -825,10 +1068,13 @@ def write_summary(state: dict[str, Any], dry_run: bool) -> None:
     for k in (
         "account_id", "region", "raw_bucket", "processed_bucket", "role_arn",
         "security_group_id", "instance_id", "lambda1_arn", "lambda2_arn",
+        "lambda_arn", "api_url",
     ):
-        print(f"  {k}: {state.get(k)}")
-    print("\nPara disparar el pipeline manualmente:")
-    print(f"  {state['sample_trigger_command']}")
+        if k in state:
+            print(f"  {k}: {state.get(k)}")
+    if "sample_trigger_command" in state:
+        print("\nPara disparar el pipeline manualmente:")
+        print(f"  {state['sample_trigger_command']}")
     print("=" * 70 + "\n")
 
 
@@ -855,6 +1101,11 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--create-roles", action="store_true",
         help="Intenta crear roles IAM least-privilege desde infra/iam/*.json "
         "(default OFF: Learner Lab deniega iam:CreateRole, se usa LabRole/LabInstanceProfile)",
+    )
+    parser.add_argument(
+        "--only-api", action="store_true",
+        help="Despliega únicamente la Lambda 'savi-api' (zip, función, log group, concurrencia "
+        "reservada, Function URL y permisos públicos); no toca buckets/EC2/SageMaker/lambdas 1 y 2",
     )
     return parser.parse_args(argv)
 

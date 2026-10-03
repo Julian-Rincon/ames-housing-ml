@@ -41,6 +41,8 @@ LAMBDA1_NAME = "savi-start-ec2"
 LAMBDA2_NAME = "savi-start-sagemaker"
 LAMBDA1_LOG_GROUP = f"/aws/lambda/{LAMBDA1_NAME}"
 LAMBDA2_LOG_GROUP = f"/aws/lambda/{LAMBDA2_NAME}"
+API_LAMBDA_NAME = "savi-api"
+API_LAMBDA_LOG_GROUP = f"/aws/lambda/{API_LAMBDA_NAME}"
 
 log = logging.getLogger("savi.teardown")
 
@@ -84,6 +86,17 @@ class SaviTeardown:
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") == "ResourceNotFoundException":
                 log.info("Lambda '%s' no existía", name)
+            else:
+                raise
+
+    def delete_function_url_config(self, name: str) -> None:
+        lam = self._client("lambda")
+        try:
+            lam.delete_function_url_config(FunctionName=name)
+            log.info("Function URL de '%s' eliminada", name)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") == "ResourceNotFoundException":
+                log.info("Function URL de '%s' no existía", name)
             else:
                 raise
 
@@ -180,6 +193,10 @@ def run(args: argparse.Namespace) -> None:
     teardown.delete_lambda(LAMBDA2_NAME)
     teardown.delete_log_group(LAMBDA1_LOG_GROUP)
     teardown.delete_log_group(LAMBDA2_LOG_GROUP)
+
+    teardown.delete_function_url_config(API_LAMBDA_NAME)
+    teardown.delete_lambda(API_LAMBDA_NAME)
+    teardown.delete_log_group(API_LAMBDA_LOG_GROUP)
 
     teardown.terminate_ec2()
     teardown.delete_security_group()

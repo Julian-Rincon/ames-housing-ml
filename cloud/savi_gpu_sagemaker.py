@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import random
 import time
@@ -130,11 +131,15 @@ class DoubleDQNAgent:
         return loss.item()
 
     @torch.no_grad()
-    def greedy_actions(self, states: np.ndarray, batch: int = 8192) -> np.ndarray:
+    def q_values(self, states: np.ndarray, batch: int = 8192) -> np.ndarray:
+        """Q(s,·) en modo evaluación → (N, 3) numpy."""
         self.q.eval()
-        out = [self.q(torch.from_numpy(states[i:i + batch]).to(self.device)).argmax(1).cpu().numpy()
+        out = [self.q(torch.from_numpy(states[i:i + batch]).to(self.device)).cpu().numpy()
                for i in range(0, len(states), batch)]
         return np.concatenate(out)
+
+    def greedy_actions(self, states: np.ndarray, batch: int = 8192) -> np.ndarray:
+        return self.q_values(states, batch).argmax(1)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -165,10 +170,12 @@ def load_ckpt(path: Path, agent: DoubleDQNAgent):
 # ════════════════════════════════════════════════════════════════════
 # ENTRENAMIENTO
 # ════════════════════════════════════════════════════════════════════
-def train_dqn(hp, data: dict, device: torch.device, ckpt_dir: Path):
+def train_dqn(hp, data: dict, device: torch.device, ckpt_dir: Path, train_idx: np.ndarray | None = None):
+    """Entrena SÓLO con las ventas de `train_idx` (por defecto todas). done=1 cuando la
+    siguiente venta cronológica del subconjunto es la propia fila (fin de la cadena)."""
     S, nxt, Rm = data["train_states"], data["train_next"], U.reward_matrix(data["train_errors"])
-    n, dim = S.shape
-    last = n - 1
+    train_idx = np.arange(len(S)) if train_idx is None else np.asarray(train_idx)
+    n, dim = len(train_idx), S.shape[1]
     agent = DoubleDQNAgent(dim, hp, device)
     start, curves = load_ckpt(ckpt_dir, agent)
     # ε por ÉPOCA: llega a EPS_MIN al ~60 % del entrenamiento (antes decaía por paso y
@@ -178,14 +185,14 @@ def train_dqn(hp, data: dict, device: torch.device, ckpt_dir: Path):
              n, dim, hp.epochs, hp.batch_size, hp.lr, eps_decay, device)
     t0 = time.time()
     for epoch in range(start, hp.epochs):
-        perm = np.random.permutation(n)
+        perm = np.random.permutation(train_idx)
         ep_r, losses = 0.0, []
         for c in range(0, n, hp.act_chunk):
             idx = perm[c:c + hp.act_chunk]
             acts = agent.act_batch(S[idx])
             rewards = Rm[idx, acts]
             for i, a, r in zip(idx, acts, rewards):
-                agent.buffer.push(S[i], a, r, S[nxt[i]], float(i == last))
+                agent.buffer.push(S[i], a, r, S[nxt[i]], float(nxt[i] == i))
                 loss = agent.learn()
                 if loss is not None:
                     losses.append(loss)
@@ -223,6 +230,89 @@ def per_property_consensus(dqn_actions, clusters, pol_vi, pol_ql) -> np.ndarray:
     return out
 
 
+def decision_rules(q_sales, q_port, cl_sales, cl_port, train_mask, pol_vi, pol_ql, val_margin_q):
+    """
+    Candidatas a regla final. Todas se pueden aplicar a ventas (evaluación) y a la cartera.
+      vi / ql            : política tabular por estado
+      dqn_state          : acción mayoritaria del DQN por estado (sobre TRAIN)
+      consensus_state    : votación VI+QL+DQN_state por estado (la del enunciado)
+      dqn_property       : DQN por predio
+      consensus_property : votación VI[s]+QL[s]+DQN(predio)
+      gated_qXX          : DQN por predio si su margen Q1-Q2 ≥ τ (percentil XX del margen en VAL);
+                           si no, consenso por predio (el DQN sólo decide cuando está seguro)
+    """
+    a_sales, a_port = q_sales.argmax(1), q_port.argmax(1)
+    pol_dqn = per_cluster_policy(a_sales[train_mask], cl_sales[train_mask], pol_vi)
+    pol_cons = U.consensus_policy(pol_vi, pol_ql, pol_dqn)
+    by_state = lambda pol, cl: np.array([U.ACTIONS.index(pol[int(c)]) for c in cl])
+    margin = lambda q: np.sort(q, axis=1)[:, -1] - np.sort(q, axis=1)[:, -2]
+
+    rules = {}
+    for name, pol in [("vi", pol_vi), ("ql", pol_ql), ("dqn_state", pol_dqn), ("consensus_state", pol_cons)]:
+        rules[name] = (by_state(pol, cl_sales), by_state(pol, cl_port))
+    rules["dqn_property"] = (a_sales, a_port)
+    cons_s = per_property_consensus(a_sales, cl_sales, pol_vi, pol_ql)
+    cons_p = per_property_consensus(a_port, cl_port, pol_vi, pol_ql)
+    rules["consensus_property"] = (cons_s, cons_p)
+    m_s, m_p = margin(q_sales), margin(q_port)
+    taus = {}
+    for pct in (10, 25, 50, 75, 90):
+        tau = float(np.percentile(val_margin_q, pct))
+        taus[f"gated_q{pct}"] = tau
+        rules[f"gated_q{pct}"] = (np.where(m_s >= tau, a_sales, cons_s), np.where(m_p >= tau, a_port, cons_p))
+    return rules, pol_dqn, pol_cons, taus
+
+
+def export_serving(model_dir: Path, agent, pids: list[str], q_port: np.ndarray, rules: dict,
+                   best: str, metrics: dict, taus: dict) -> Path:
+    """
+    Artefactos que consume la API (Lambda, Python puro):
+      serving/dqn_weights.json   pesos de la QNetwork (Linear+BN en modo eval) para inferir sin torch
+      serving/decisions.json.gz  por PID: acción DQN, Q-values, margen, consenso y acción final
+      serving/policy.json        regla seleccionada en VAL, umbral τ, políticas por estado y métricas
+    """
+    import gzip
+    import json
+    srv = model_dir / "serving"
+    srv.mkdir(parents=True, exist_ok=True)
+    sd = {k: v.detach().cpu().numpy().tolist() for k, v in agent.q.state_dict().items()
+          if not k.endswith("num_batches_tracked")}
+    U.save_json({"architecture": "Linear(D,128)→BatchNorm1d(eval)→ReLU→Linear(128,64)→ReLU→Linear(64,3)",
+                 "bn_eps": 1e-5, "state_dict": sd, "actions": U.ACTIONS}, srv / "dqn_weights.json")
+    q_sorted = np.sort(q_port, axis=1)
+    margin = q_sorted[:, -1] - q_sorted[:, -2]
+    dec = {pid: {"q": [round(float(x), 3) for x in q], "margin": round(float(m), 3),
+                 "dqn": U.ACTIONS[int(rules["dqn_property"][1][i])],
+                 "consensus": U.ACTIONS[int(rules["consensus_state"][1][i])],
+                 "final": U.ACTIONS[int(rules[best][1][i])]}
+           for i, (pid, q, m) in enumerate(zip(pids, q_port, margin))}
+    (srv / "decisions.json.gz").write_bytes(gzip.compress(json.dumps(dec, separators=(",", ":")).encode()))
+    U.save_json({"selected_rule": best, "gated_tau": taus.get(best), "taus": taus,
+                 **{k: metrics[k] for k in ("policy_vi", "policy_ql", "policy_dqn", "policy_final", "rules",
+                                            "test", "reward_oracle", "split_sizes", "portfolio_action_share")},
+                 "reward_function": {"APROBAR": "error<10% → +200 | <25% → −500 | ≥25% → −2000",
+                                     "REVISAR": "error<10% → −150 | si no → −50",
+                                     "RECHAZAR": "error>20% → +50 | si no → −200"}}, srv / "policy.json")
+    return srv
+
+
+def publish_serving(srv: Path, prefix: str, run_id: str) -> None:
+    """Sube serving/ al prefijo del run y apunta s3://bucket/serving/latest.json a esta corrida."""
+    import boto3
+    from datetime import datetime, timezone
+    m = prefix.removeprefix("s3://").rstrip("/") + "/"
+    bucket, run_key = m.split("/", 1)
+    s3 = boto3.client("s3")
+    for f in sorted(srv.iterdir()):
+        s3.upload_file(str(f), bucket, f"{run_key}serving/{f.name}")
+        log.info("  ↑ s3://%s/%sserving/%s", bucket, run_key, f.name)
+    latest = {"run_id": run_id, "rag_prefix": f"{run_key}rag/", "serving_prefix": f"{run_key}serving/",
+              "updated_utc": datetime.now(timezone.utc).isoformat()}
+    s3.put_object(Bucket=bucket, Key="serving/latest.json", Body=json.dumps(latest).encode(),
+                  ContentType="application/json")
+    log.info("serving/latest.json → %s", latest)
+
+
 def try_plot(curves: dict, path: Path) -> None:
     """Curvas de entrenamiento (opcional: el contenedor puede no traer matplotlib)."""
     try:
@@ -257,6 +347,8 @@ def parse_args():
     ap.add_argument("--act-chunk", type=int, default=64)
     ap.add_argument("--ckpt-every", type=int, default=10)
     ap.add_argument("--run-id", type=str, default="local")
+    ap.add_argument("--publish-prefix", type=str, default="",
+                    help="s3://bucket/runs/<id>/ → publica serving/ y actualiza s3://bucket/serving/latest.json")
     # Rutas estándar SageMaker (con valores por defecto para pruebas locales)
     ap.add_argument("--data-dir", default=os.environ.get("SM_CHANNEL_PROCESSED", "/opt/ml/input/data/processed"))
     ap.add_argument("--model-dir", default=os.environ.get("SM_MODEL_DIR", "/opt/ml/model"))
@@ -278,47 +370,64 @@ def main() -> None:
 
     A = U.ARTIFACTS
     data = {k: np.load(data_dir / A[k]) for k in
-            ["train_states", "train_errors", "train_next", "train_clusters", "portfolio_states", "portfolio_clusters"]}
+            ["train_states", "train_errors", "train_next", "train_clusters", "train_split",
+             "portfolio_states", "portfolio_clusters"]}
     pol_vi, pol_ql = U.load_policy(data_dir / A["policy_vi"]), U.load_policy(data_dir / A["policy_ql"])
+    split, cl, err = data["train_split"], data["train_clusters"], data["train_errors"]
+    masks = {g: split == k for g, k in [("train", U.SPLIT_TRAIN), ("val", U.SPLIT_VAL), ("test", U.SPLIT_TEST)]}
     log.info("Políticas recibidas del EC2 → VI=%s | QL=%s", pol_vi, pol_ql)
+    log.info("Split de ventas → %s", {g: int(m.sum()) for g, m in masks.items()})
 
-    # ── 1-2: entrenamiento Double DQN ──
-    agent, curves = train_dqn(hp, data, device, Path(hp.checkpoint_dir))
+    # ── 1-2: entrenamiento Double DQN (sólo TRAIN) ──
+    agent, curves = train_dqn(hp, data, device, Path(hp.checkpoint_dir), np.flatnonzero(masks["train"]))
 
-    # ── 3: política DQN ──
-    tr_act = agent.greedy_actions(data["train_states"])
-    pf_act = agent.greedy_actions(data["portfolio_states"])
-    pol_dqn = per_cluster_policy(pf_act, data["portfolio_clusters"], pol_vi)
-    log.info("Política DQN (por estado) → %s", pol_dqn)
+    # ── 3-4: reglas candidatas, selección en VAL, reporte en TEST ──
+    q_sales, q_port = agent.q_values(data["train_states"]), agent.q_values(data["portfolio_states"])
+    q_sorted = np.sort(q_sales[masks["val"]], axis=1)
+    rules, pol_dqn, pol_final, taus = decision_rules(
+        q_sales, q_port, cl, data["portfolio_clusters"], masks["train"], pol_vi, pol_ql,
+        q_sorted[:, -1] - q_sorted[:, -2])
+    Rm = U.reward_matrix(err)
+    rows = np.arange(len(err))
+    per_row = {name: Rm[rows, a_s] for name, (a_s, _) in rules.items()}
+    table = {name: {g: float(r[m].mean()) for g, m in masks.items()} for name, r in per_row.items()}
+    order = list(rules)  # en empate gana la regla más simple (orden de definición)
+    best = max(order, key=lambda k: (round(table[k]["val"], 6), -order.index(k)))
+    test_r = per_row[best][masks["test"]]
+    diff_vi = test_r - per_row["vi"][masks["test"]]
+    mean_t, lo_t, hi_t = U.bootstrap_ci(test_r)
+    mean_d, lo_d, hi_d = U.bootstrap_ci(diff_vi)
+    oracle = Rm.max(axis=1)
 
-    # ── 4: consenso ──
-    pol_final = U.consensus_policy(pol_vi, pol_ql, pol_dqn)
-    tr_cons = per_property_consensus(tr_act, data["train_clusters"], pol_vi, pol_ql)
-    pf_cons = per_property_consensus(pf_act, data["portfolio_clusters"], pol_vi, pol_ql)
+    log.info("  %-20s %9s %9s %9s", "regla", "train", "val", "test")
+    for name in order:
+        log.info("  %-20s %9.2f %9.2f %9.2f%s", name, table[name]["train"], table[name]["val"],
+                 table[name]["test"], "  ← SELECCIONADA (mejor en VAL)" if name == best else "")
+    log.info("  %-20s %9.2f %9.2f %9.2f", "oráculo", *(float(oracle[m].mean()) for m in masks.values()))
+    log.info("TEST (%d ventas) regla '%s': reward=%.2f IC95%%[%.2f, %.2f] | vs VI: %+.2f IC95%%[%.2f, %.2f]",
+             int(masks["test"].sum()), best, mean_t, lo_t, hi_t, mean_d, lo_d, hi_d)
 
-    Rm = U.reward_matrix(data["train_errors"])
-    rows = np.arange(len(tr_act))
-    cl, err = data["train_clusters"], data["train_errors"]
+    pf_act, pf_final = rules["dqn_property"][1], rules[best][1]
+    pf_cons = rules["consensus_state"][1]
     metrics = {
         "run_id": hp.run_id, "device": str(device), "epochs": hp.epochs,
-        "reward_vi": U.eval_policy(pol_vi, cl, err), "reward_ql": U.eval_policy(pol_ql, cl, err),
-        "reward_dqn_state": U.eval_policy(pol_dqn, cl, err),
-        "reward_dqn_property": float(Rm[rows, tr_act].mean()),
-        "reward_consensus_state": U.eval_policy(pol_final, cl, err),
-        "reward_consensus_property": float(Rm[rows, tr_cons].mean()),
-        "reward_oracle": float(Rm.max(axis=1).mean()),
+        "split_sizes": {g: int(m.sum()) for g, m in masks.items()},
+        "rules": table, "gated_taus": taus, "selected_rule": best,
+        "test": {"reward": mean_t, "ci95": [lo_t, hi_t], "delta_vs_vi": mean_d, "delta_vs_vi_ci95": [lo_d, hi_d],
+                 "delta_significant": bool(lo_d > 0 or hi_d < 0)},
+        "reward_oracle": {g: float(oracle[m].mean()) for g, m in masks.items()},
         "policy_vi": pol_vi, "policy_ql": pol_ql, "policy_dqn": pol_dqn, "policy_final": pol_final,
-        "portfolio_action_share": {U.ACTIONS[a]: float(np.mean(pf_cons == a)) for a in range(U.N_ACTIONS)},
+        "portfolio_action_share": {U.ACTIONS[a]: float(np.mean(pf_final == a)) for a in range(U.N_ACTIONS)},
         "train_seconds": round(time.time() - t0, 1),
     }
-    for k in [k for k in metrics if k.startswith("reward_")]:
-        log.info("  %-28s %8.2f", k, metrics[k])
-    log.info("POLÍTICA FINAL (consenso por estado) → %s", pol_final)
-    log.info("Cartera 2024 → %s", {k: f"{100 * v:.1f}%" for k, v in metrics["portfolio_action_share"].items()})
+    log.info("POLÍTICA FINAL (consenso por estado, enunciado) → %s", pol_final)
+    log.info("Cartera 2024 con la regla '%s' → %s", best,
+             {k: f"{100 * v:.1f}%" for k, v in metrics["portfolio_action_share"].items()})
 
     # ── 5: artefactos del modelo final ──
     torch.save({"state_dict": agent.q.state_dict(), "state_dim": int(data["train_states"].shape[1]),
-                "actions": U.ACTIONS, "hyperparameters": vars(hp)}, model_dir / "dqn_model.pt")
+                "actions": U.ACTIONS, "hyperparameters": vars(hp), "selected_rule": best,
+                "gated_tau": taus.get(best)}, model_dir / "dqn_model.pt")
     U.save_json(pol_dqn, model_dir / "policy_dqn.json")
     U.save_json(pol_final, model_dir / "policy_final.json")
     U.save_json(metrics, model_dir / "metrics_gpu.json")
@@ -332,11 +441,21 @@ def main() -> None:
         meta_rows = list(reader)
         if len(meta_rows) != len(pf_act):  # zip() truncaría en silencio si se desincronizan
             raise ValueError(f"portfolio_meta ({len(meta_rows)}) ≠ portfolio_states ({len(pf_act)})")
-        writer = csv.DictWriter(fout, fieldnames=reader.fieldnames + ["dqn_action", "final_action"])
+        cols = ["dqn_action", "consensus_action", "final_action"]
+        writer = csv.DictWriter(fout, fieldnames=reader.fieldnames + cols)
         writer.writeheader()
-        for row, a_dqn, a_fin in zip(meta_rows, pf_act, pf_cons):
-            row.update(dqn_action=U.ACTIONS[int(a_dqn)], final_action=U.ACTIONS[int(a_fin)])
+        for row, a_dqn, a_cons, a_fin in zip(meta_rows, pf_act, pf_cons, pf_final):
+            row.update(dqn_action=U.ACTIONS[int(a_dqn)], consensus_action=U.ACTIONS[int(a_cons)],
+                       final_action=U.ACTIONS[int(a_fin)])
             writer.writerow(row)
+    pids = [r["PID"] for r in meta_rows]
+    srv = export_serving(model_dir, agent, pids, q_port, rules, best, metrics, taus)
+    if hp.publish_prefix:
+        try:
+            publish_serving(srv, hp.publish_prefix, hp.run_id)
+        except Exception:  # la publicación no debe tumbar un entrenamiento ya terminado
+            log.exception("No se pudo publicar serving/ en %s (el modelo igual queda en model.tar.gz)",
+                          hp.publish_prefix)
     log.info("Modelo y decisiones guardados en %s (SageMaker → model.tar.gz en S3)", model_dir)
     log.info("MOTOR GPU completado en %.1fs", time.time() - t0)
 

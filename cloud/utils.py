@@ -32,6 +32,11 @@ EPS_MIN = 0.05        # Epsilon mínimo
 EPISODES_QL = 8000    # Episodios Q-Learning
 N_CLUSTERS = 6        # Estados discretos del MDP (K-Means)
 
+# División de las ventas para evaluar sin sesgo: los agentes aprenden en TRAIN,
+# la regla de decisión final se elige en VAL y el resultado se reporta UNA vez en TEST.
+SPLIT_TRAIN, SPLIT_VAL, SPLIT_TEST = 0, 1, 2
+SPLIT_FRACS = (0.70, 0.15, 0.15)
+
 ACTIONS = ["APROBAR", "REVISAR", "RECHAZAR"]
 N_ACTIONS = len(ACTIONS)
 A_APROBAR, A_REVISAR, A_RECHAZAR = 0, 1, 2
@@ -43,6 +48,7 @@ ARTIFACTS = {
     "train_errors": "tensors/train_errors.npy",        # (N_train,) error relativo out-of-fold
     "train_next": "tensors/train_next_idx.npy",        # (N_train,) índice del siguiente predio (orden cronológico)
     "train_clusters": "tensors/train_clusters.npy",    # (N_train,) estado discreto K-Means
+    "train_split": "tensors/train_split.npy",          # (N_train,) 0=train 1=val 2=test (estratificado)
     "portfolio_states": "tensors/portfolio_states.npy",  # (N_port, D) cartera 2024 a decidir
     "portfolio_clusters": "tensors/portfolio_clusters.npy",
     "portfolio_meta": "portfolio/portfolio_meta.csv",  # PID, valor AVM, avalúo, etc.
@@ -121,6 +127,50 @@ def reward_matrix(errors: np.ndarray) -> np.ndarray:
     r[:, A_REVISAR] = np.where(e < 0.10, -150.0, -50.0)
     r[:, A_RECHAZAR] = np.where(e > 0.20, 50.0, -200.0)
     return r
+
+
+# ════════════════════════════════════════════════════════════════════
+# EVALUACIÓN SIN SESGO: split estratificado, cadena cronológica, bootstrap
+# ════════════════════════════════════════════════════════════════════
+def stratified_split(strata: np.ndarray, fracs=SPLIT_FRACS, seed: int = SEED) -> np.ndarray:
+    """
+    Asigna cada fila a TRAIN/VAL/TEST respetando la proporción dentro de cada estrato
+    (cluster K-Means). Estratos con <3 filas van completos a TRAIN.
+    """
+    rng = np.random.default_rng(seed)
+    split = np.full(len(strata), SPLIT_TRAIN, dtype=np.int64)
+    for s in np.unique(strata):
+        idx = rng.permutation(np.flatnonzero(strata == s))
+        if len(idx) < 3:
+            continue
+        n_val = max(1, int(round(fracs[1] * len(idx))))
+        n_test = max(1, int(round(fracs[2] * len(idx))))
+        split[idx[:n_val]] = SPLIT_VAL
+        split[idx[n_val:n_val + n_test]] = SPLIT_TEST
+    return split
+
+
+def next_within_split(split: np.ndarray) -> np.ndarray:
+    """
+    Para filas ya ordenadas cronológicamente: índice de la SIGUIENTE fila del mismo
+    subconjunto. La última de cada subconjunto apunta a sí misma (done=1 en el DQN),
+    así ninguna transición cruza de TRAIN a VAL/TEST.
+    """
+    nxt = np.arange(len(split))
+    for g in np.unique(split):
+        idx = np.flatnonzero(split == g)
+        nxt[idx[:-1]] = idx[1:]
+    return nxt
+
+
+def bootstrap_ci(values: np.ndarray, n_boot: int = 2000, alpha: float = 0.05,
+                 seed: int = SEED) -> tuple[float, float, float]:
+    """Media e intervalo de confianza bootstrap (percentiles) de `values`."""
+    v = np.asarray(values, dtype=np.float64)
+    rng = np.random.default_rng(seed)
+    means = v[rng.integers(0, len(v), (n_boot, len(v)))].mean(axis=1)
+    lo, hi = np.quantile(means, [alpha / 2, 1 - alpha / 2])
+    return float(v.mean()), float(lo), float(hi)
 
 
 # ════════════════════════════════════════════════════════════════════
