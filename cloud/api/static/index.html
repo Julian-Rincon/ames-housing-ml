@@ -84,7 +84,7 @@
   h1,h2,h3{ font-weight:600; margin:0 0 .5rem; }
   h1{ font-size:1.3rem; }
   h2{ font-size:1.05rem; color:var(--ink); }
-  h3{ font-size:.92rem; color:var(--ink-dim); font-weight:600; }
+  h3, h2.h3{ font-size:.92rem; color:var(--ink-dim); font-weight:600; }
   p{ margin:.4rem 0; }
   .lede{ color:var(--ink-dim); max-width:62ch; margin-bottom:1rem; }
 
@@ -351,12 +351,12 @@
       <div id="market-result" hidden>
         <div class="grid-2">
           <div class="panel">
-            <h3>FHFA House Price Index — área de Ames (trimestral)</h3>
+            <h2 class="h3">FHFA House Price Index — área de Ames (trimestral)</h2>
             <div class="kv" id="market-hpi-kv" style="margin-bottom:.6rem;"></div>
             <div id="market-hpi-chart"></div>
           </div>
           <div class="panel">
-            <h3>Zillow ZHVI (mensual)</h3>
+            <h2 class="h3">Zillow ZHVI (mensual)</h2>
             <div class="kv" id="market-zhvi-kv" style="margin-bottom:.6rem;"></div>
             <div id="market-zhvi-chart"></div>
           </div>
@@ -372,16 +372,16 @@
       <div id="model-result" hidden>
         <div class="grid-2">
           <div class="panel">
-            <h3>Modelo de valuación (AVM — XGBoost)</h3>
+            <h2 class="h3">Modelo de valuación (AVM — XGBoost)</h2>
             <dl class="kv" id="model-avm-kv"></dl>
           </div>
           <div class="panel">
-            <h3>Política de decisión seleccionada</h3>
+            <h2 class="h3">Política de decisión seleccionada</h2>
             <dl class="kv" id="model-policy-kv"></dl>
           </div>
         </div>
         <div class="panel">
-          <h3>Recompensa por regla de decisión (validación / prueba)</h3>
+          <h2 class="h3">Recompensa por regla de decisión (validación / prueba)</h2>
           <table class="data" id="model-rules-table">
             <thead><tr><th>Regla</th><th class="num">Entrenamiento</th><th class="num">Validación</th><th class="num">Prueba</th></tr></thead>
             <tbody></tbody>
@@ -389,16 +389,16 @@
         </div>
         <div class="grid-2">
           <div class="panel">
-            <h3>Función de recompensa</h3>
+            <h2 class="h3">Función de recompensa</h2>
             <dl class="kv" id="model-reward-kv"></dl>
           </div>
           <div class="panel">
-            <h3>Fuentes de datos</h3>
+            <h2 class="h3">Fuentes de datos</h2>
             <ul id="model-sources" style="margin:0; padding-left:1.1rem; font-size:.86rem; color:var(--ink-dim);"></ul>
           </div>
         </div>
         <div class="panel">
-          <h3>Limitaciones honestas</h3>
+          <h2 class="h3">Limitaciones honestas</h2>
           <ul id="model-limits" style="margin:0; padding-left:1.1rem; font-size:.88rem;"></ul>
         </div>
       </div>
