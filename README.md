@@ -1,226 +1,282 @@
-# SAVI: Autonomous Real Estate Valuation System
+<div align="center">
 
-**End-to-end Machine Learning pipeline for Ames Housing: market segmentation, price prediction, and risk-aware decision making with Reinforcement Learning.**
+# 🏠 SAVI — Autonomous Real-Estate Valuation Agent
 
-[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-orange.svg)](https://scikit-learn.org/)
-[![XGBoost](https://img.shields.io/badge/Model-XGBoost-red.svg)](https://xgboost.readthedocs.io/)
-[![Reinforcement Learning](https://img.shields.io/badge/AI-Markov_Decision_Process-purple.svg)]()
-[![PyTorch](https://img.shields.io/badge/RL-PyTorch_DQN-EE4C2C.svg)](https://pytorch.org/)
-[![GitHub Pages](https://img.shields.io/badge/Demo-GitHub_Pages-success.svg)](https://julian-rincon.github.io/ames-housing-ml/SAVI_v2_ParcialFinal.html)
-[![AWS](https://img.shields.io/badge/Cloud-AWS_S3·Lambda·EC2·SageMaker-FF9900.svg)](cloud/README.md)
-[![SAVI Cloud CI](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml/badge.svg)](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml)
+**From a university ML notebook to a cloud-native, event-driven RL + RAG agent on AWS**
+*Ames, Iowa · 18,078 parcels · 2,930 real sales · XGBoost · Value Iteration · Q-Learning · Double DQN · Claude*
 
-> **Interactive demo:** [explore the SAVI v2 full RL pipeline](https://julian-rincon.github.io/ames-housing-ml/SAVI_v2_ParcialFinal.html)
->
-> **v1 demo:** [MDP Value Iteration presentation](https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html)
+[![Live demo](https://img.shields.io/badge/▶_LIVE_DEMO-try_the_agent-c9a84c?style=for-the-badge)](https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Julian-Rincon/ames-housing-ml/cloud-ci.yml?style=for-the-badge&label=CI)](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml)
+[![Tests](https://img.shields.io/badge/tests-191_passing-2ea44f?style=for-the-badge)](cloud/tests)
 
----
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-FF9900?logo=awslambda&logoColor=white)
+![Amazon EC2](https://img.shields.io/badge/AWS-EC2-FF9900?logo=amazonec2&logoColor=white)
+![Amazon S3](https://img.shields.io/badge/AWS-S3-569A31?logo=amazons3&logoColor=white)
+![SageMaker](https://img.shields.io/badge/AWS-SageMaker-01A88D?logo=amazonaws&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-Double_DQN-EE4C2C?logo=pytorch&logoColor=white)
+![XGBoost](https://img.shields.io/badge/XGBoost-AVM-189FDD)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-K--Means-F7931E?logo=scikitlearn&logoColor=white)
+![Claude](https://img.shields.io/badge/LLM-Claude_tool_use-D97757?logo=anthropic&logoColor=white)
+![boto3](https://img.shields.io/badge/IaC-boto3-232F3E?logo=amazonaws&logoColor=white)
 
-## SAVI v3 — Cloud Native on AWS (new)
+<a href="https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/">
+  <img src="docs/images/demo_chat.png" alt="SAVI agent: chat with grounded answers, comparable sales and map" width="92%">
+</a>
 
-The v2 monolith now runs as an **event-driven AWS pipeline** ([`cloud/`](cloud/README.md)):
-uploading a dataset to S3 triggers a Lambda that starts a self-terminating **EC2 CPU engine**
-(K-Means, XGBoost, Value Iteration, Q-Learning); its `_SUCCESS.json` triggers a second Lambda
-that launches a **SageMaker Training Job** (Double DQN + VI/QL/DQN consensus) that writes the
-final model and per-parcel decisions back to S3.
-
-v3 also replaces the combined CSV with **real Ames, Iowa data** joined by parcel ID
-(De Cock 2006-2010 sales + City Assessor 2024 roll + FHFA house price index), fixes three
-bugs that prevented v2 from running, and implements a true Double DQN.
-
-> **Data note on v2 metrics.** An audit found that 93 % of the rows in
-> `ames_combined_2006_2024.csv` were 2024 assessor records padded with 61 constant columns, and
-> their `SalePrice` was the 2024 *assessed* value, not a sale. The v2 R²=0.96 below reflects that
-> artifact. With real sales and honest 5-fold out-of-fold validation, v3 reaches
-> **R²(log)=0.921, MAPE 7.8 %** — see [`cloud/README.md`](cloud/README.md).
+</div>
 
 ---
 
-## Executive Summary
+## ✨ At a glance
 
-SAVI v2 extends the original MDP framework with a complete Reinforcement Learning pipeline. Starting from market segmentation with K-Means and price prediction with XGBoost (R²=0.9609), the system trains three RL agents in sequence: Value Iteration (MDP, convergence in 259 iterations), Q-Learning tabular (8,000 episodes, ε-greedy exploration), and a Deep Q-Network (PyTorch, Double DQN implicit architecture, 150 epochs, Adam optimizer). The final decision policy is determined by consensus across all three agents, with DQN as tiebreaker.
-
-| Action | Operational Meaning |
+| | |
 |---|---|
-| `APPROVE` | Automate the valuation when expected risk is low. |
-| `REVIEW` | Send the case to a human appraiser when expected model error is more expensive than review. |
-| `REJECT` | Request more information when the segment is too uncertain or underrepresented. |
+| **Problem** | An Automated Valuation Model (AVM) predicts a house price — but *when should a lender trust it?* SAVI learns, with reinforcement learning, whether to **APPROVE** the automatic valuation, send it to a human **REVIEW**, or **REJECT** it and ask for more data, based on the economic cost of being wrong. |
+| **v3 (individual)** | Re-engineered the academic monolith into an **event-driven AWS pipeline** (S3 → Lambda → EC2 → Lambda → SageMaker), rebuilt the dataset from **real public sources**, and shipped a **RAG agent API + web app** on a public URL. |
+| **Data** | 2,930 real sales (De Cock 2006–2010) joined by parcel ID to the **2024 Ames City Assessor roll** (18,078 parcels), price-indexed to 2026 dollars with the **FHFA HPI**, geolocated, plus Zillow ZHVI. |
+| **Models** | XGBoost AVM (5-fold out-of-fold **R²(log) = 0.921 · MAPE 7.8 %**), K-Means market states, MDP Value Iteration, tabular Q-Learning, PyTorch **Double DQN**, decision rule selected on a held-out validation split. |
+| **Engineering** | boto3 IaC, self-terminating EC2 with cost guards, SageMaker Spot with checkpoints, idempotent runs, stdlib-only inference in Lambda that reproduces the models **exactly**, 191 tests, GitHub Actions CI. |
+
+> 🇪🇸 **Resumen:** SAVI empezó como proyecto académico en equipo (v1–v2) y en la **v3** lo convertí, de forma individual, en un sistema cloud-native en AWS con datos reales de Ames, un pipeline orientado a eventos, evaluación estadística honesta y un **agente RAG** desplegado con interfaz web pública.
 
 ---
 
-## Project Evolution
+## 🧭 Project evolution
 
-This repository preserves the original exploratory analysis, clustering, and supervised learning work. The SAVI updates do not replace that foundation; they extend it with increasingly complete autonomous decision layers.
+```mermaid
+timeline
+    title SAVI — from coursework to a deployed agent
+    section Academic · team project (Universidad Sergio Arboleda)
+        ML foundation : EDA · clustering (K-Means, Ward, DBSCAN, PCA) · supervised models (8 notebooks)
+        SAVI v1 : MDP + Value Iteration decision layer · interactive presentation
+        SAVI v2 : Q-Learning + DQN + consensus policy · IEEE-style paper · monolithic script
+    section Individual · Julian Rincón
+        SAVI v3 · Cloud : Audit + real data rebuild · event-driven AWS pipeline · honest evaluation
+        SAVI v3 · Agent : RAG knowledge base · 8 tools · Claude tool-use loop · public web app
+```
 
-| Stage | Goal | Artifacts |
-|---|---|---|
-| ML foundation | Unsupervised segmentation and predictive modeling | `notebooks/01` to `notebooks/08` |
-| SAVI v1 decision layer | MDP Value Iteration agent | `MDP_Ames_SAVI.py`, `MDP_Ames_Presentacion.html` |
-| SAVI v2 full RL pipeline | Q-Learning + DQN + consensus policy + IEEE paper | `SAVI_v2_ParcialFinal.py`, `SAVI_v2_ParcialFinal.html`, `SAVI_v2_ArticuloIEEE.docx` |
-| SAVI v3 cloud native | Real Ames data, event-driven AWS pipeline (S3 · Lambda · EC2 · SageMaker), Double DQN, 131 tests + CI | `cloud/` |
+| Version | Authors | What it is | Key result |
+|---|---|---|---|
+| **ML foundation** | Team | 8 notebooks: EDA, clustering, regression/classification baselines | Segmentation + supervised baselines |
+| **SAVI v1** | Team | MDP over K-Means market states, solved with Value Iteration | First risk-aware APPROVE / REVIEW / REJECT policy |
+| **SAVI v2** | Team | Monolithic script: XGBoost + VI + Q-Learning + DQN + consensus vote, IEEE paper | Full RL pipeline (academic final project) |
+| **SAVI v3** | **Julian Rincón (solo)** | Cloud-native pipeline on AWS + real-data rebuild + RAG agent API and web app | Live demo · R²(log) 0.921 on real sales · 191 tests |
 
----
+<details>
+<summary><b>What changed from v2 to v3 (audit findings)</b></summary>
 
-## Technical Architecture
+- **Data integrity.** An audit found that **93 % of the rows** of the v2 dataset (`ames_combined_2006_2024.csv`) were 2024 assessor records padded with **61 constant columns** (e.g. every row `Neighborhood = NAmes`, `LotArea = 9000`), and their `SalePrice` was the **assessed value**, not a sale. v2's R² = 0.96 reflected that artifact. v3 rebuilds the dataset from real sources joined by parcel ID.
+- **Three bugs** prevented the v2 script from running end-to-end (invalid f-string format spec, `.values` on a NumPy array, the removed `squared=False` in scikit-learn ≥ 1.6).
+- The "Double DQN" was a vanilla DQN with a target network → now a **true Double DQN** (online net selects, target net evaluates).
+- ε decayed **per step** (reached 0.05 after ~600 of ~3M steps) → now per epoch.
+- The DQN learned from **in-sample** errors and LightGBM early-stopped on the test set → **out-of-fold** errors and no test leakage.
+- Q-Learning with constant α = 0.1 and rewards up to −2000 was noise-dominated → visit-count decaying α; it now converges to the Value-Iteration policy.
 
-### 1. Market Segmentation
-
-SAVI uses **K-Means** to convert properties into environment states. Each state represents a market segment with similar economic and structural behavior.
-
-Current SAVI configuration:
-
-- `k = 6` states.
-- Numerical features scaled with `StandardScaler`.
-- Cluster validation with `silhouette_score`.
-
-### 2. Supervised Price Prediction
-
-The pipeline trains an **XGBoost Regressor** to estimate `SalePrice`. The K-Means cluster is added as a contextual feature, connecting market segmentation with price prediction.
-
-Latest run on the local Ames Housing dataset:
-
-| Model | R2 | MAE |
-|---|---:|---:|
-| XGBoost + cluster feature | 0.9609 | $26,752 |
-
-### 3. Reinforcement Learning Pipeline (v2)
-
-SAVI v2 trains three RL agents in sequence and combines their policies:
-
-**3a. Value Iteration (MDP)**
-- States: K-Means clusters (k=6)
-- Actions: APPROVE, REVIEW, REJECT
-- Convergence: 259 iterations (θ=0.0001, γ=0.95)
-
-**3b. Q-Learning Tabular**
-- Episodes: 8,000
-- Learning rate α=0.1, ε-greedy decay from 1.0 → 0.05
-- State space: same 6 clusters
-
-**3c. Deep Q-Network (PyTorch)**
-- Architecture: fully connected network on top-20 XGBoost features (continuous state vector)
-- Double DQN implicit (online vs target network)
-- 150 epochs, Adam lr=3e-4, batch=128, replay buffer=20,000
-- ε decay: 1.0 → 0.05 over training
-
-**3d. Consensus Policy**
-Final policy = majority vote across VI, QL, DQN. DQN breaks ties.
+</details>
 
 ---
 
-## SAVI Results
+## ☁️ v3 architecture — event-driven, pay-per-use
 
-| Result | Interpretation |
+```mermaid
+flowchart LR
+    U([👤 Upload dataset]) -->|aws s3 cp| RAW[(S3 raw<br/>input/ · reference/ · code/)]
+    RAW -->|ObjectCreated input/| L1[λ savi-start-ec2<br/>tags run_id · starts EC2]
+    L1 --> EC2[🖥️ EC2 t3.medium · CPU engine<br/>data integration · K-Means · XGBoost CV<br/>Value Iteration · Q-Learning · RAG export]
+    EC2 -.->|shutdown -h now| EC2
+    EC2 -->|artifacts + _SUCCESS.json| PROC[(S3 processed<br/>runs/&lt;run_id&gt;/)]
+    PROC -->|ObjectCreated _SUCCESS.json| L2[λ savi-start-sagemaker<br/>GPU Spot → GPU → CPU Spot → CPU]
+    L2 --> SM[🧠 SageMaker Training Job<br/>Double DQN · rule selection on VAL]
+    SM -->|model.tar.gz · serving/ · latest.json| PROC
+    PROC --> API[λ savi-api · Function URL<br/>RAG agent + web app]
+    API --> B([🌐 Browser])
+    EC2 & L1 & L2 & SM & API -.->|logs| CW[(CloudWatch)]
+```
+
+<details>
+<summary><b>One run, step by step (sequence diagram)</b></summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant S3raw as S3 raw
+    participant L1 as λ start-ec2
+    participant EC2 as EC2 CPU engine
+    participant S3p as S3 processed
+    participant L2 as λ start-sagemaker
+    participant SM as SageMaker
+    participant API as λ savi-api
+    User->>S3raw: put input/AmesHousing.txt
+    S3raw-->>L1: ObjectCreated event
+    L1->>EC2: create_tags(SaviRunId) + start_instances
+    EC2->>S3raw: sync code · read references
+    EC2->>EC2: integrate data · K-Means · XGBoost CV · VI · QL · export RAG
+    EC2->>S3p: tensors · Q-tables · models · rag/*.json · _SUCCESS.json (last)
+    EC2->>EC2: shutdown -h now (trap EXIT, 60-min hard timeout)
+    S3p-->>L2: ObjectCreated _SUCCESS.json
+    L2->>SM: create_training_job (fallback chain)
+    SM->>S3p: model.tar.gz · serving/* · serving/latest.json
+    API->>S3p: cold start loads latest run
+    User->>API: GET / · POST /api/chat
+```
+
+</details>
+
+**Measured on AWS (verified hands-off run):** EC2 engine **49 s** then self-stops · SageMaker Spot **288 billable s** · full run **< US$0.05**.
+
+**Built for a constrained account (AWS Academy Learner Lab)** — every limitation found was verified live and handled in code:
+
+| Constraint discovered | How v3 handles it |
 |---|---|
-| XGBoost R²=0.9609 | Price prediction baseline |
-| 259 VI iterations | MDP policy convergence |
-| 8,000 QL episodes | Tabular agent training |
-| 150 DQN epochs | Neural agent training |
-| Consensus policy | Final APPROVE/REVIEW/REJECT per cluster |
-
-The decision is not based only on the predicted price. It is based on the expected cost of being wrong, which makes the approach relevant for PropTech, mortgage underwriting, real estate risk scoring, and automated appraisal workflows.
+| No `iam:CreateRole` | Uses the pre-provisioned `LabRole`; least-privilege policies shipped as JSON in [`cloud/infra/iam/`](cloud/infra/iam) |
+| SageMaker GPU types explicitly denied (despite quota) | Lambda fallback chain GPU Spot → GPU → **CPU Spot** → CPU; same training script |
+| `aws:SourceAccount` condition silently blocks S3 → Lambda | Permission scoped by bucket ARN only |
+| EC2 instances **restart** when a lab session starts | Idempotent runs: if `runs/<id>/_SUCCESS.json` exists the instance shuts down without work |
+| Amazon Bedrock blocked | Claude via the Anthropic API with the key in SSM; deterministic fallback when no key |
 
 ---
 
-## Original Repository Results
+## 🤖 The RAG agent
 
-The original project includes unsupervised and supervised analysis on the extended Ames Housing dataset.
+**Live:** <https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/> — one Lambda Function URL serves the web app (`/`) and the JSON API (`/api/*`).
 
-### Dataset
+```mermaid
+flowchart TB
+    Q([Question in Spanish]) --> AG{agent.py}
+    AG -->|key in SSM| CL[Claude tool-use loop<br/>adaptive thinking · ≤ 6 turns]
+    AG -->|no key / API error| DT[Deterministic planner<br/>intent rules + templates]
+    CL & DT --> TOOLS
+    subgraph TOOLS [8 retrieval & compute tools]
+        T1[get_parcel] --- T2[search_parcels] --- T3[find_comparables]
+        T4[value_property · what-if] --- T5[area_stats] --- T6[market_trend]
+        T7[search_knowledge · BM25] --- T8[model_card]
+    end
+    TOOLS --> KB[(Knowledge base from the pipeline<br/>18,078 parcels · 2,930 geolocated sales<br/>FHFA · Zillow · 28 neighborhoods · 672 subdivisions<br/>XGBoost · K-Means · DQN exported as JSON)]
+    TOOLS --> ANS([Grounded answer + tool trace + evidence map])
+```
 
-| Property | Value |
-|---|---:|
-| Rows | 20,203 |
-| Columns | 81 |
-| Period | 2006-2024 |
-| Target variable | `SalePrice` |
-| Sources | Kaggle + City of Ames Assessor 2024 |
+- **Every number is retrieved, never invented**: answers cite parcel/sale IDs and sources and show the tools used.
+- **Exact models without heavy dependencies**: XGBoost trees, K-Means and the DQN network are evaluated in **pure Python** from JSON (float32 split semantics). Verified against the pipeline on all 18,078 parcels: AVM Δ ≤ **0.003 %**, **0** cluster mismatches, **0** decision mismatches, |ΔQ| < 0.006.
+- **Comparable sales** combine feature similarity and haversine distance, and produce an independent **comps-based estimate** that is cross-checked against the AVM.
+- **What-if valuation**: change living area, year, grade, condition or neighborhood and get a new value, range (±MAPE), market state and agent decision, with the assumptions listed explicitly.
+- Cost controls on a public endpoint: reserved concurrency, turn cap, bounded tokens.
 
-> The dataset is not committed because of size and reproducibility constraints. See `data/README.md`.
-
-### Previous Supervised Models
-
-| Model | Task | Main metric | MAE |
-|---|---|---:|---:|
-| LightGBM | Regression | R2 = 0.75 | ~$23,600 |
-| Random Forest | Regression | R2 = 0.3349 | $47,546 |
-| Decision Tree | Regression | R2 = 0.3276 | $48,084 |
-| KNN | Regression | R2 = 0.2509 | $51,562 |
-| Linear Regression | Regression | R2 = 0.0767 | $60,076 |
-| SVM | Binary classification | Accuracy = 95% | F1 = 0.9398 |
-
-### Previous Clustering Work
-
-| Algorithm | Result |
-|---|---|
-| K-Means | Segmentation using Elbow, Silhouette, and Dunn Index. |
-| Hierarchical Clustering | Comparison of Ward, Complete, and Average linkage. |
-| DBSCAN | Detection of clusters, noise, and high-value outliers. |
-| PCA | PC1 = 41.6%, PC2 = 13.5%, total = 55.0%. |
+<table>
+<tr>
+<td width="50%"><img src="docs/images/demo_parcel.png" alt="Parcel explorer with AVM, decision, Q-values, comparable sales and map"><br><sub><b>Parcel explorer</b> — AVM vs assessment, RL decision with Q-values, comparable sales on a map, what-if.</sub></td>
+<td width="50%"><img src="docs/images/demo_model.png" alt="Model card with metrics and per-rule rewards"><br><sub><b>Model card</b> — AVM metrics and reward per decision rule on train / validation / test.</sub><br><br><img src="docs/images/demo_market.png" alt="Ames market: FHFA HPI and Zillow ZHVI"><br><sub><b>Market</b> — FHFA HPI (quarterly) and Zillow ZHVI (monthly) for Ames.</sub></td>
+</tr>
+</table>
 
 ---
 
-## Repository Structure
+## 📊 Results — measured honestly
+
+**Valuation model (AVM).** Real sales only, prices in 2026Q2 dollars, 5-fold cross-validation with out-of-fold predictions:
+
+| Model | R² (log) | R² (USD) | MAE | MAPE |
+|---|---:|---:|---:|---:|
+| **XGBoost** (selected) | **0.921** | **0.927** | **$27,110** | **7.8 %** |
+| LightGBM | 0.912 | 0.911 | $29,053 | 8.3 % |
+
+**Decision policy (RL).** Sales are split 70 / 15 / 15, stratified by market state. Agents learn on *train*, the decision rule is chosen on *validation*, and *test* is reported once with a bootstrap 95 % CI:
+
+| Decision rule | Train | Validation | Test |
+|---|---:|---:|---:|
+| Value Iteration = Q-Learning | −20.9 | 1.3 | −51.1 |
+| Double DQN, per property | **+36.9** | 2.1 | −45.4 |
+| Confidence-gated DQN (selected on validation) | −18.3 | 3.4 | −52.6 |
+| *Oracle (upper bound)* | *142.6* | *149.5* | *143.1* |
+
+> **Takeaway:** the per-property DQN **overfits** (train +36.9 → test −45.4) and **no rule beats Value Iteration significantly** on unseen sales (Δ = −1.6, 95 % CI [−5.6, 2.4]). The promising gains of v2 came largely from in-sample evaluation. The gap to the oracle shows the information that would matter most is not in the current features.
+
+---
+
+## 🛠️ Engineering quality
+
+- **191 automated tests** (146 pipeline + 45 API): reward semantics, MDP/VI/QL, Double-DQN targets, checkpoint resume, Lambda handlers with `botocore.Stubber`, EC2 boot scripts with stubbed `aws`/`shutdown`, IaC dry-run, and end-to-end runs on real data.
+- **CI** on GitHub Actions (Python 3.11 + 3.12): shellcheck, tests, Lambda package build, deployment dry-run; actions pinned by SHA.
+- **Infrastructure as code** with boto3: idempotent `deploy.py` (with `--dry-run`), `teardown.py`, least-privilege IAM documents.
+- **Cost and safety guards**: EC2 with no inbound ports (SSM only) and a guaranteed `trap`-based shutdown, SageMaker Spot with S3 checkpoints, 30-day artifact lifecycle, 14-day log retention, API secrets in SSM SecureString.
+- **Integration contracts** ([`CONTRACT.md`](cloud/CONTRACT.md), [`RAG_CONTRACT.md`](cloud/RAG_CONTRACT.md)) so each component can be developed and tested in isolation.
+
+---
+
+## 🗂️ Repository structure
 
 ```text
 .
-├── SAVI_v2_ParcialFinal.py        # SAVI v2: full RL pipeline (VI + Q-Learning + DQN)
-├── SAVI_v2_ParcialFinal.html      # Interactive v2 presentation for GitHub Pages
-├── SAVI_v2_ArticuloIEEE.docx      # IEEE-format technical paper
-├── MDP_Ames_SAVI.py               # SAVI v1: MDP + Value Iteration
-├── MDP_Ames_Presentacion.html     # SAVI v1 interactive demo
-├── Documentacion_SAVI.pdf         # v1 technical documentation
-├── notebooks/
-├── data/
-├── requirements.txt
-└── README.md
+├── cloud/                         # ★ SAVI v3 (individual) — see cloud/README.md
+│   ├── savi_cpu_pipeline.py       #   EC2 engine: data integration, K-Means, XGBoost, VI, Q-Learning
+│   ├── savi_gpu_sagemaker.py      #   SageMaker engine: Double DQN, rule selection, serving export
+│   ├── savi_rag_export.py         #   knowledge base for the agent (rag/*.json)
+│   ├── utils.py                   #   shared rewards, policies, splits, bootstrap
+│   ├── lambdas/                   #   event triggers (S3 → EC2, S3 → SageMaker)
+│   ├── ec2/                       #   user-data + systemd run script with cost guards
+│   ├── api/                       #   RAG agent: savi_api/, handler.py, static/index.html
+│   ├── infra/                     #   boto3 deploy / teardown / IAM policies / LLM key helper
+│   └── tests/                     #   pipeline tests (api/tests for the agent)
+├── SAVI_v2_ParcialFinal.py        # SAVI v2 (team) — monolithic RL pipeline
+├── SAVI_v2_ParcialFinal.html      # v2 interactive presentation
+├── SAVI_v2_ArticuloIEEE.docx      # v2 IEEE-style paper
+├── MDP_Ames_SAVI.py               # SAVI v1 (team) — MDP + Value Iteration
+├── MDP_Ames_Presentacion.html     # v1 interactive presentation
+├── notebooks/                     # ML foundation (team): 01–08
+└── docs/images/                   # screenshots
 ```
 
 ---
 
-## How to Run
+## 🚀 Run it
+
+**Try it:** open the [live demo](https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/) and ask, for example, *"¿Cuánto vale la parcela 0526301100 y qué decide el agente?"* or *"Casas de 3 habitaciones en Northridge Heights por menos de 400 mil"*.
+
+**Locally (v3):**
 
 ```bash
-git clone git@github.com:Julian-Rincon/ames-housing-ml.git
-cd ames-housing-ml
+cd cloud
+python -m venv .venv && .venv/bin/pip install -r requirements-ec2.txt torch pytest anthropic
+# data/input/AmesHousing.txt + data/reference/ (assessor roll, FHFA HPI, geo, Zillow) — see cloud/README.md
+.venv/bin/python savi_cpu_pipeline.py --input data/input/AmesHousing.txt --reference data/reference --output out/run
+SM_CHANNEL_PROCESSED=out/run SM_MODEL_DIR=out/model .venv/bin/python savi_gpu_sagemaker.py --epochs 30
+SAVI_DATA_DIR=out/fixture .venv/bin/python api/local_server.py --port 8080   # rag/ + serving/
+```
+
+**On AWS:** `python infra/deploy.py` (idempotent; `--dry-run` to preview), then `aws s3 cp data/input/AmesHousing.txt s3://savi-raw-<account>/input/`. Full guide in [`cloud/README.md`](cloud/README.md).
+
+<details>
+<summary><b>Legacy versions (v1 / v2, team)</b></summary>
+
+- v2 interactive presentation: <https://julian-rincon.github.io/ames-housing-ml/SAVI_v2_ParcialFinal.html>
+- v1 interactive presentation: <https://julian-rincon.github.io/ames-housing-ml/MDP_Ames_Presentacion.html>
+
+```bash
 pip install -r requirements.txt
+python MDP_Ames_SAVI.py            # v1: MDP + Value Iteration
+python SAVI_v2_ParcialFinal.py     # v2: monolithic RL pipeline (expects AMES_DATASET_PATH)
 ```
 
-The SAVI script searches for `ames_combined_2006_2024.csv` in this order:
+Original notebook results (on the v2 extended dataset, see the data note above):
 
-```text
-AMES_DATASET_PATH
-./ames_combined_2006_2024.csv
-./data/ames_combined_2006_2024.csv
-C:\Users\jrinc\Desktop\Aprendizaje de maquina\ames House Price\ames_combined_2006_2024.csv
-```
+| Model | Task | Main metric |
+|---|---|---|
+| LightGBM | Regression | R² = 0.75 |
+| Random Forest | Regression | R² = 0.33 |
+| SVM | Binary classification | Accuracy = 95 %, F1 = 0.94 |
+| K-Means / Ward / DBSCAN / PCA | Segmentation | Elbow, Silhouette, Dunn · PC1 + PC2 = 55 % variance |
 
-Then run the v2 pipeline:
-
-```bash
-python SAVI_v2_ParcialFinal.py
-```
-
-To run the original v1 MDP pipeline:
-
-```bash
-python MDP_Ames_SAVI.py
-```
-
-To reproduce the original notebook workflow, place `ames_combined_2006_2024.csv` in `data/` and open the notebooks in order:
-
-```text
-01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08
-```
+</details>
 
 ---
 
-## Authors
+## 👥 Authors & credits
 
-- **Julian Rincon** - [github.com/Julian-Rincon](https://github.com/Julian-Rincon)
-- Valeria Larea
-- Nicolas Garzon
-- Juan Nino
+| Version | Authors |
+|---|---|
+| ML foundation · SAVI v1 · SAVI v2 | Academic team project, *Machine Learning*, Universidad Sergio Arboleda (2026): **Julian Rincón**, Valeria Larea, Nicolás Garzón, Juan Niño |
+| **SAVI v3** (cloud pipeline, data rebuild, RAG agent, web app) | **Julian Rincón** — individual project · [github.com/Julian-Rincon](https://github.com/Julian-Rincon) |
 
-*Universidad Sergio Arboleda - Machine Learning*
+**Data:** D. De Cock (2011), *Ames, Iowa: Alternative to the Boston Housing Data*, Journal of Statistics Education · City of Ames Assessor (2024 residential roll) · FHFA House Price Index (Ames MSA) · Zillow Home Value Index · coordinates from the `modeldata::ames` R package (tidymodels).
+**Disclaimer:** educational project; not an official appraisal or financial advice.
