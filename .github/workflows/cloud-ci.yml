@@ -38,5 +38,11 @@ jobs:
         env:
           AWS_DEFAULT_REGION: us-east-1
         run: python -m pytest -q -m "not slow"
+      - name: Tests de la API del agente (los que validan contra artefactos reales se omiten sin datos)
+        run: |
+          pip install anthropic
+          cd api && python -m pytest -q tests
+      - name: Paquete Lambda de la API (< 50 MB)
+        run: python api/build_lambda.py
       - name: Dry-run del despliegue (sin credenciales)
         run: python infra/deploy.py --dry-run --account-id 123456789012

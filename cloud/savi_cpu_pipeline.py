@@ -37,6 +37,7 @@ from sklearn.metrics import mean_absolute_error, r2_score, silhouette_score
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
+import savi_rag_export as RAG
 import utils as U
 
 log = U.get_logger("savi.cpu")
@@ -451,7 +452,8 @@ def run(input_uri: str, reference: str, output: str, run_id: str) -> dict:
     log.info("[PASO 1] Integración de fuentes reales de Ames, Iowa")
     hpi, latest = load_hpi(fetch_reference(reference, HPI_FILE, work))
     roll = load_assessor_roll(fetch_reference(reference, ASSESSOR_ROLL, work))
-    sales = load_decock_sales(fetch(input_uri, work))
+    input_path = fetch(input_uri, work)
+    sales = load_decock_sales(input_path)
     extra = load_assessor_sales(fetch_reference(reference, ASSESSOR_SALES, work, required=False))
     if extra is not None:
         sales = pd.concat([sales, extra], ignore_index=True)
@@ -495,19 +497,24 @@ def run(input_uri: str, reference: str, output: str, run_id: str) -> dict:
     S_port = np.clip(mms.transform(S_port), 0, 1).astype(np.float32)
 
     # ── PASO 4-6: MDP + VI + QL ──
-    log.info("[PASO 4] Ambiente RL (R con errores OOF, P cronológica)")
-    R, P = build_mdp(train_cl, errors)
+    # Split estratificado por cluster: los agentes aprenden SÓLO en TRAIN; VAL elige la
+    # regla final (en SageMaker) y TEST se reporta una única vez → métricas sin sesgo.
+    split = U.stratified_split(train_cl)
+    tr = split == U.SPLIT_TRAIN
+    log.info("[PASO 4] Ambiente RL (R con errores OOF, P cronológica) | split train/val/test = %s",
+             np.bincount(split, minlength=3).tolist())
+    R, P = build_mdp(train_cl[tr], errors[tr])  # la máscara conserva el orden cronológico
     log.info("[PASO 5] Value Iteration (γ=%.2f θ=%g)", U.GAMMA, U.THETA)
     V, Q_vi, pol_vi, it_vi = value_iteration(R, P)
-    log.info("[PASO 6] Q-Learning tabular (%d episodios × %d ventas)", U.EPISODES_QL, len(train))
-    Q_ql, pol_ql, ql_curve = q_learning(train_cl, errors, P)
+    log.info("[PASO 6] Q-Learning tabular (%d episodios × %d ventas de TRAIN)", U.EPISODES_QL, int(tr.sum()))
+    Q_ql, pol_ql, ql_curve = q_learning(train_cl[tr], errors[tr], P)
 
     # ── Exportación ──
     log.info("[PASO 7] Exportando artefactos")
     A = U.ARTIFACTS
-    next_idx = np.append(np.arange(1, len(train)), len(train) - 1)  # siguiente venta cronológica
+    next_idx = U.next_within_split(split)  # siguiente venta cronológica del MISMO subconjunto
     for key, arr in [("train_states", S_tr), ("train_errors", errors.astype(np.float32)),
-                     ("train_next", next_idx), ("train_clusters", train_cl),
+                     ("train_next", next_idx), ("train_clusters", train_cl), ("train_split", split),
                      ("portfolio_states", S_port), ("portfolio_clusters", port_cl)]:
         (out / A[key]).parent.mkdir(parents=True, exist_ok=True)
         np.save(out / A[key], arr)
@@ -523,7 +530,8 @@ def run(input_uri: str, reference: str, output: str, run_id: str) -> dict:
     (out / "data").mkdir(exist_ok=True)
     pd.DataFrame({"PID": train["PID"], "source": train["source"], "sale_date": train["sale_date"],
                   "price_today": train["price_today"].round(0), "avm_oof": oof_pred.round(0),
-                  "error": errors.round(4), "cluster": train_cl}).to_csv(out / "data/train_sales.csv", index=False)
+                  "error": errors.round(4), "cluster": train_cl,
+                  "split": np.array(["train", "val", "test"])[split]}).to_csv(out / "data/train_sales.csv", index=False)
 
     U.save_json(pol_vi, out / A["policy_vi"])
     U.save_json(pol_ql, out / A["policy_ql"])
@@ -544,13 +552,24 @@ def run(input_uri: str, reference: str, output: str, run_id: str) -> dict:
         "supervised": {k: {m: v for m, v in r.items() if m != "oof"} for k, r in sup.items()},
         "avm_selected": best_name, "dqn_state_dim": int(S_tr.shape[1]), "dqn_state_features": top
         + ["log_avm_value", "gap_vs_assessed", "kmeans_distance"],
-        "reward_vi": U.eval_policy(pol_vi, train_cl, errors),
-        "reward_ql": U.eval_policy(pol_ql, train_cl, errors),
+        "split_sizes": dict(zip(["train", "val", "test"], np.bincount(split, minlength=3).tolist())),
+        **{f"reward_{n}_{g}": U.eval_policy(pol, train_cl[split == k], errors[split == k])
+           for n, pol in [("vi", pol_vi), ("ql", pol_ql)]
+           for g, k in [("train", U.SPLIT_TRAIN), ("val", U.SPLIT_VAL), ("test", U.SPLIT_TEST)]},
         "policy_vi": pol_vi, "policy_ql": pol_ql,
         "elapsed_sec": round(time.time() - t_start, 1),
     }
+    # ── PASO 8: base de conocimiento del agente RAG (rag/*.json) ──
+    log.info("[PASO 8] Exportando base de conocimiento RAG")
+    metrics["rag"] = RAG.export_rag(
+        out, reference_fetch=lambda name: fetch_reference(reference, name, work, required=False),
+        decock_path=input_path, train=train, portfolio=portfolio, port_pred=port_pred, port_cl=port_cl,
+        oof_pred=oof_pred, errors=errors, train_cl=train_cl, split=split, hpi=hpi, latest=latest,
+        hpi_path=fetch_reference(reference, HPI_FILE, work), avm=avm, avm_name=best_name,
+        avm_columns=list(X_tr.columns), scaler=scaler, km=km, mms=mms, top=top,
+        num_features=NUM_FEATURES, metrics=metrics)
     U.save_json(metrics, out / A["metrics_cpu"])
-    log.info("  Reward medio VI=%.1f | QL=%.1f", metrics["reward_vi"], metrics["reward_ql"])
+    log.info("  Reward medio en VAL → VI=%.1f | QL=%.1f", metrics["reward_vi_val"], metrics["reward_ql_val"])
 
     # _SUCCESS se escribe AL FINAL: es la señal para la Lambda 2
     U.save_json({"run_id": run_id, "status": "SUCCEEDED", "output": output,

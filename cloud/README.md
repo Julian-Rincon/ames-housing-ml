@@ -13,10 +13,61 @@ flowchart LR
     EC2 -- "K-Means · XGBoost · VI · QL<br/>tensores + tablas Q" --> PROC[(S3 processed<br/>runs/&lt;run_id&gt;/)]
     EC2 -. "shutdown -h now" .-> EC2
     PROC -- "ObjectCreated _SUCCESS.json" --> L2[λ savi-start-sagemaker]
-    L2 -- "CreateTrainingJob<br/>Spot → On-Demand → CPU" --> SM[SageMaker ml.g4dn.xlarge<br/>Double DQN + consenso]
+    L2 -- "CreateTrainingJob<br/>Spot → On-Demand → CPU" --> SM[SageMaker (GPU o CPU Spot)<br/>Double DQN + regla elegida en VAL]
     SM -- "model.tar.gz<br/>decisiones de cartera" --> PROC
     EC2 & L1 & L2 & SM -. logs .-> CW[(CloudWatch)]
 ```
+
+## Agente SAVI (RAG) — demo en vivo
+
+**URL pública:** https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/
+(interfaz web en `/`, API JSON en `/api/*`; Lambda Function URL, sin servidores que mantener)
+
+El agente responde en español sobre las 18,078 parcelas del padrón 2024 de Ames y las 2,930 ventas
+reales, **siempre con evidencia recuperada** (RAG) de la base de conocimiento que genera el pipeline:
+
+| Herramienta | Qué recupera / calcula |
+|---|---|
+| `get_parcel` | Parcela + valor AVM hoy + avalúo + decisión del agente RL (APROBAR/REVISAR/RECHAZAR) con Q-values |
+| `search_parcels` | Búsqueda con filtros (barrio, precio, área, año, habitaciones, decisión…) |
+| `find_comparables` | Ventas reales más parecidas (distancia en features + geográfica) y **estimación por comparables** vs AVM |
+| `value_property` | Valuación *what-if* (XGBoost evaluado en Python puro, idéntico al modelo: Δ ≤ 0.003 %) + decisión |
+| `area_stats` / `market_trend` | Barrios, subdivisiones y clusters · FHFA HPI y Zillow ZHVI |
+| `search_knowledge` / `model_card` | BM25 sobre la documentación del proyecto · métricas y política seleccionada |
+
+```mermaid
+flowchart LR
+    B([Navegador]) --> URL[Lambda Function URL<br/>savi-api]
+    URL --> UI[index.html<br/>chat · parcela · mercado · modelo]
+    URL --> AG[agent.py<br/>Claude + herramientas · o modo determinista]
+    AG --> T[tools.py<br/>8 herramientas RAG]
+    T --> ST[(S3 serving/latest.json →<br/>rag/*.json + serving/*.json)]
+    PIPE[Pipeline EC2 + SageMaker] -- publica --> ST
+```
+
+- **LLM:** Claude (`claude-opus-5`) vía API de Anthropic con la clave en SSM (`infra/set_llm_key.py`).
+  Bedrock está bloqueado en AWS Academy Learner Lab. **Sin clave, el agente funciona en modo
+  determinista**: mismo RAG y mismas herramientas, redacción con plantillas.
+- **Sin dependencias pesadas en Lambda**: AVM, K-Means y la red del DQN se evalúan en Python puro
+  a partir de JSON exportados (verificado contra el pipeline: 0 discrepancias de cluster y de decisión,
+  |ΔQ| < 0.006). Arranque en frío ≈ 8 s (descarga de S3); consultas en milisegundos.
+- **Coordenadas**: las ventas De Cock se geolocalizan con `modeldata::ames` (alineado fila a fila,
+  100 %); el resto de parcelas usa el centroide de su subdivisión (`geo_precision`).
+
+### Evaluación honesta de la política RL
+
+Las ventas se dividen 70/15/15 (estratificado por cluster). VI, QL y el Double DQN aprenden en TRAIN,
+la regla final se elige en VALIDACIÓN y se reporta **una sola vez** en TEST con IC bootstrap 95 %:
+
+| Regla | Train | Val | Test |
+|---|---:|---:|---:|
+| Value Iteration / Q-Learning | −20.9 | 1.3 | −51.1 |
+| DQN por predio | **+36.9** | 2.1 | −45.4 |
+| `gated_q10` (seleccionada en VAL) | −18.3 | 3.4 | −52.6 |
+
+El DQN por predio sobreajusta (train +36.9 → test −45.4) y **ninguna regla supera a Value Iteration
+de forma significativa** en test (Δ = −1.6, IC95 % [−5.6, 2.4]). Es el resultado real con 378 ventas
+de prueba; la mejora prometedora de v2 era, en buena parte, evaluación in-sample.
 
 ## Datos: fuentes reales de Ames, Iowa
 
@@ -73,8 +124,10 @@ cloud/
 ├── savi_gpu_sagemaker.py    # motor GPU (SageMaker script mode)
 ├── lambdas/                 # savi-start-ec2 · savi-start-sagemaker
 ├── ec2/                     # user-data (1er boot) + run_pipeline.sh (systemd, cada boot)
-├── infra/                   # deploy.py · teardown.py · iam/ (políticas least-privilege)
-├── tests/                   # 130 tests (pytest; sin AWS real)
+├── savi_rag_export.py       # base de conocimiento del agente (rag/*.json)
+├── api/                     # agente RAG: savi_api/ (store, inference, retrieval, tools, agent), handler.py, static/index.html
+├── infra/                   # deploy.py · teardown.py · set_llm_key.py · iam/ (políticas least-privilege)
+├── tests/                   # 146 tests del pipeline (pytest; sin AWS real) · api/tests: 45 tests
 └── CONTRACT.md              # contrato de integración entre componentes
 ```
 
