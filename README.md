@@ -325,3 +325,8 @@ Original notebook results (on the v2 extended dataset, see the data note above):
 
 **Data:** D. De Cock (2011), *Ames, Iowa: Alternative to the Boston Housing Data*, Journal of Statistics Education · City of Ames Assessor (2024 residential roll) · FHFA House Price Index (Ames MSA) · Zillow Home Value Index · coordinates from the `modeldata::ames` R package (tidymodels).
 **Disclaimer:** educational project; not an official appraisal or financial advice.
+
+---
+
+<!-- julian-rincon-footer -->
+<p align="center"><sub>Built by <b>Julián Rincón</b> · <a href="https://julian-rincon.github.io/#p-savi">Portfolio</a> · <a href="https://www.linkedin.com/in/julian-esteban-rinc%C3%B3n-rodriguez-1a05501b7/">LinkedIn</a> · <a href="https://github.com/Julian-Rincon">GitHub</a></sub></p>
