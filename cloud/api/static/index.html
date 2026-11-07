@@ -133,8 +133,8 @@
 
   .qbars{ display:flex; flex-direction:column; gap:.4rem; margin:.5rem 0; }
   .qbar-row{ display:grid; grid-template-columns:90px 1fr 70px; gap:.5rem; align-items:center; font-size:.8rem; }
-  .qbar-track{ height:10px; background:var(--bg-sunken); border:1px solid var(--line-soft); border-radius:6px; overflow:hidden; }
-  .qbar-fill{ height:100%; }
+  .qbar-track{ display:block; height:10px; background:var(--bg-sunken); border:1px solid var(--line-soft); border-radius:6px; overflow:hidden; }
+  .qbar-fill{ display:block; height:100%; }
   .qbar-fill.APROBAR{ background:var(--sage); }
   .qbar-fill.REVISAR{ background:var(--amber); }
   .qbar-fill.RECHAZAR{ background:var(--brick); }

@@ -537,7 +537,7 @@ def _render_get_parcel(result: dict, pid: str) -> str:
     facts = []
     for key, label in [("neighborhood", "Barrio"), ("subdivision", "Subdivisión"), ("style", "Estilo"),
                        ("year_built", "Año"), ("living_area", "Área habitable (sqft)"),
-                       ("beds_above", "Habitaciones"), ("grade", "Grado Iowa"), ("condition_label", "Condición")]:
+                       ("beds_above", "Dormitorios"), ("grade", "Grado Iowa"), ("condition_label", "Condición")]:
         if result.get(key) not in (None, ""):
             facts.append(f"{label}: {result[key]}")
     if facts:
