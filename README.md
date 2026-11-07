@@ -7,7 +7,7 @@
 
 [![Live demo](https://img.shields.io/badge/▶_LIVE_DEMO-try_the_agent-c9a84c?style=for-the-badge)](https://julianrincon-savi-agent.static.hf.space/)
 [![CI](https://img.shields.io/github/actions/workflow/status/Julian-Rincon/ames-housing-ml/cloud-ci.yml?style=for-the-badge&label=CI)](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml)
-[![Tests](https://img.shields.io/badge/tests-191_passing-2ea44f?style=for-the-badge)](cloud/tests)
+[![Tests](https://img.shields.io/badge/tests-197_passing-2ea44f?style=for-the-badge)](cloud/tests)
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-FF9900?logo=awslambda&logoColor=white)
@@ -38,7 +38,7 @@
 | **v3 (individual)** | Re-engineered the academic monolith into an **event-driven AWS pipeline** (S3 → Lambda → EC2 → Lambda → SageMaker), rebuilt the dataset from **real public sources**, and shipped a **RAG agent API + web app** on a public URL. |
 | **Data** | 2,930 real sales (De Cock 2006–2010) joined by parcel ID to the **2024 Ames City Assessor roll** (18,078 parcels), price-indexed to 2026 dollars with the **FHFA HPI**, geolocated, plus Zillow ZHVI. |
 | **Models** | XGBoost AVM (5-fold out-of-fold **R²(log) = 0.921 · MAPE 7.8 %**), K-Means market states, MDP Value Iteration, tabular Q-Learning, PyTorch **Double DQN**, decision rule selected on a held-out validation split. |
-| **Engineering** | boto3 IaC, self-terminating EC2 with cost guards, SageMaker Spot with checkpoints, idempotent runs, stdlib-only inference in Lambda that reproduces the models **exactly**, 191 tests, GitHub Actions CI. |
+| **Engineering** | boto3 IaC, self-terminating EC2 with cost guards, SageMaker Spot with checkpoints, idempotent runs, stdlib-only inference in Lambda that reproduces the models **exactly**, 197 tests, GitHub Actions CI. |
 
 > 🇪🇸 **Resumen:** SAVI empezó como proyecto académico en equipo (v1–v2) y en la **v3** lo convertí, de forma individual, en un sistema cloud-native en AWS con datos reales de Ames, un pipeline orientado a eventos, evaluación estadística honesta y un **agente RAG** desplegado con interfaz web pública.
 
@@ -63,7 +63,7 @@ timeline
 | **ML foundation** | Team | 8 notebooks: EDA, clustering, regression/classification baselines | Segmentation + supervised baselines |
 | **SAVI v1** | Team | MDP over K-Means market states, solved with Value Iteration | First risk-aware APPROVE / REVIEW / REJECT policy |
 | **SAVI v2** | Team | Monolithic script: XGBoost + VI + Q-Learning + DQN + consensus vote, IEEE paper | Full RL pipeline (academic final project) |
-| **SAVI v3** | **Julian Rincón (solo)** | Cloud-native pipeline on AWS + real-data rebuild + RAG agent API and web app | Live demo · R²(log) 0.921 on real sales · 191 tests |
+| **SAVI v3** | **Julian Rincón (solo)** | Cloud-native pipeline on AWS + real-data rebuild + RAG agent API and web app | Live demo · R²(log) 0.921 on real sales · 197 tests |
 
 <details>
 <summary><b>What changed from v2 to v3 (audit findings)</b></summary>
@@ -241,7 +241,7 @@ handler runs in the browser on [Pyodide](https://pyodide.org) and the page's `/a
 
 ## 🛠️ Engineering quality
 
-- **191 automated tests** (146 pipeline + 45 API): reward semantics, MDP/VI/QL, Double-DQN targets, checkpoint resume, Lambda handlers with `botocore.Stubber`, EC2 boot scripts with stubbed `aws`/`shutdown`, IaC dry-run, and end-to-end runs on real data.
+- **197 automated tests** (141 pipeline + 56 API): reward semantics, MDP/VI/QL, Double-DQN targets, checkpoint resume, Lambda handlers with `botocore.Stubber`, EC2 boot scripts with stubbed `aws`/`shutdown`, IaC dry-run, and end-to-end runs on real data.
 - **CI** on GitHub Actions (Python 3.11 + 3.12): shellcheck, tests, Lambda package build, deployment dry-run; actions pinned by SHA.
 - **Infrastructure as code** with boto3: idempotent `deploy.py` (with `--dry-run`), `teardown.py`, least-privilege IAM documents.
 - **Cost and safety guards**: EC2 with no inbound ports (SSM only) and a guaranteed `trap`-based shutdown, SageMaker Spot with S3 checkpoints, 30-day artifact lifecycle, 14-day log retention, API secrets in SSM SecureString.
