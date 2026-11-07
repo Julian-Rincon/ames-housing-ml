@@ -381,3 +381,18 @@ def test_claude_mode_turn_cap(install_fake_tools, monkeypatch):
     assert client.messages.calls[2]["tool_choice"] == {"type": "none"}
     assert result["answer"] == "Mejor esfuerzo final."
     assert result["mode"] == "claude"
+
+
+def test_deterministic_precio_por_pie_en_barrio_va_a_area_stats(install_fake_tools, monkeypatch):
+    """Un barrio conocido + una pregunta estadística (sin la palabra 'barrio') es area_stats."""
+    calls = []
+
+    def run_tool(name, tool_input):
+        calls.append((name, tool_input))
+        return {"neighborhood": tool_input.get("neighborhood"), "n_parcels": 10, "median_price_per_sqft": 180.0}
+
+    install_fake_tools(run_tool)
+    monkeypatch.setattr(agent, "_extract_neighborhood", lambda text: "Somerset")
+    result = agent.answer("Precio medio por pie cuadrado en Somerset")
+    assert calls and calls[0] == ("area_stats", {"neighborhood": "Somerset"})
+    assert result["mode"] == "deterministic"

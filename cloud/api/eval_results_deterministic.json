@@ -1,0 +1,134 @@
+{
+  "mode": "deterministic",
+  "n": 10,
+  "tool_accuracy": 1.0,
+  "grounded_rate": 1.0,
+  "answered_rate": 1.0,
+  "fell_back": 0,
+  "median_seconds": 0.0,
+  "rows": [
+    {
+      "question": "¿Cuánto vale hoy la parcela 0906200120?",
+      "mode": "deterministic",
+      "tools": [
+        "get_parcel"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.46,
+      "answer": "### Parcela 0906200120\n- **Valor AVM (hoy)**: $1,119,030 (rango ±MAPE: $1,032,193 – $1,205,867)\n- **Avalúo oficial 2024 llevado a hoy**: $740,912 · brecha AVM vs avalúo: +51.0%\n- **Decisión del agente RL**: **APROBAR** → automatizar la valuación (el AVM es confiable para este perfil de predio)\n  - Q-values DQN: APROBAR 2,468, REVISAR 2,200, RECHAZAR 2,134 (margen 267); regla seleccionada en validación: `dqn_property`; DQN=APROBAR, consenso VI/QL/DQN=APROBAR\n- **Características**: Barrio: College Creek · Subdivisión: AMETHYST PLACE SD · Estilo: 2 Story Frame · Año: 2005 · Área habitable (sqft):"
+    },
+    {
+      "question": "Dame 5 comparables de la parcela 0906200120",
+      "mode": "deterministic",
+      "tools": [
+        "find_comparables",
+        "get_parcel"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.02,
+      "answer": "### Parcela 0906200120\n- **Valor AVM (hoy)**: $1,119,030 (rango ±MAPE: $1,032,193 – $1,205,867)\n- **Avalúo oficial 2024 llevado a hoy**: $740,912 · brecha AVM vs avalúo: +51.0%\n- **Decisión del agente RL**: **APROBAR** → automatizar la valuación (el AVM es confiable para este perfil de predio)\n  - Q-values DQN: APROBAR 2,468, REVISAR 2,200, RECHAZAR 2,134 (margen 267); regla seleccionada en validación: `dqn_property`; DQN=APROBAR, consenso VI/QL/DQN=APROBAR\n- **Características**: Barrio: College Creek · Subdivisión: AMETHYST PLACE SD · Estilo: 2 Story Frame · Año: 2005 · Área habitable (sqft):"
+    },
+    {
+      "question": "¿Qué decisión tomó el agente RL para 0906200120 y por qué?",
+      "mode": "deterministic",
+      "tools": [
+        "get_parcel"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.0,
+      "answer": "### Parcela 0906200120\n- **Valor AVM (hoy)**: $1,119,030 (rango ±MAPE: $1,032,193 – $1,205,867)\n- **Avalúo oficial 2024 llevado a hoy**: $740,912 · brecha AVM vs avalúo: +51.0%\n- **Decisión del agente RL**: **APROBAR** → automatizar la valuación (el AVM es confiable para este perfil de predio)\n  - Q-values DQN: APROBAR 2,468, REVISAR 2,200, RECHAZAR 2,134 (margen 267); regla seleccionada en validación: `dqn_property`; DQN=APROBAR, consenso VI/QL/DQN=APROBAR\n- **Características**: Barrio: College Creek · Subdivisión: AMETHYST PLACE SD · Estilo: 2 Story Frame · Año: 2005 · Área habitable (sqft):"
+    },
+    {
+      "question": "Busca casas en College Creek con al menos 4 habitaciones por menos de 400 mil",
+      "mode": "deterministic",
+      "tools": [
+        "search_parcels"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.01,
+      "answer": "### 316 parcelas cumplen los filtros (mostrando 10)\n| PID | Barrio | Estilo | Año | Área (ft²) | Hab. | Valor AVM hoy | Avalúo hoy | Decisión |\n|---|---|---|---|---|---|---|---|---|\n| 0907285030 | College Creek | 2 Story Frame | 1997 | 1769 | 4 | $398,707 | $395,578 | APROBAR |\n| 0907280030 | College Creek | 2 Story Frame | 2000 | 1976 | 4 | $398,349 | $388,879 | APROBAR |\n| 0906475130 | College Creek | 2 Story Frame | 1973 | 2322 | 4 | $397,591 | $366,102 | APROBAR |\n| 0907401080 | College Creek | 2 Story Frame | 2004 | 1948 | 4 | $394,636 | $375,480 | APROBAR |\n| 0906392010 | College Creek |"
+    },
+    {
+      "question": "¿Cómo está el mercado inmobiliario de Ames últimamente?",
+      "mode": "deterministic",
+      "tools": [
+        "market_trend"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.0,
+      "answer": "### Mercado inmobiliario de Ames\n- **Índice FHFA HPI (Ames MSA)**: 126.4 (2000Q1) → 324.8 (2026Q2), **+156.9%** en el período; variación interanual +5.6%\n- **Zillow ZHVI (valor típico de vivienda)**: $171,073 (2010-01) → $303,902 (2026-08), **+77.6%** en el período; variación interanual +2.8%\n\n_Fuentes: FHFA All-Transactions HPI (CBSA 11180) y Zillow ZHVI de la ciudad de Ames._"
+    },
+    {
+      "question": "Estadísticas del barrio Old Town",
+      "mode": "deterministic",
+      "tools": [
+        "area_stats"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.0,
+      "answer": "### Estadísticas de la zona\n- **Barrio**: Old Town\n- **Ventas reales 2006-2010**: 239\n- **Precio mediano de venta (hoy)**: $235,820\n- **Precio mediano por ft² (hoy)**: $179\n- **Parcelas en el padrón 2024**: 945\n- **Valor AVM mediano (hoy)**: $231,993\n- **Avalúo mediano 2024**: $200,800\n- **Año de construcción mediano**: 1920\n- **Área habitable mediana (ft²)**: 1,374"
+    },
+    {
+      "question": "¿Qué tan preciso es el modelo de valuación?",
+      "mode": "deterministic",
+      "tools": [
+        "model_card",
+        "search_knowledge"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.0,
+      "answer": "### Ficha del modelo SAVI\n- **AVM XGBoost** (CV 5-fold, out-of-fold): R² log 0.921 · R² USD 0.927 · MAE $27,110 · MAPE 7.8%\n- **Regla de decisión elegida en validación**: `dqn_property`\n- **Test** (ventas nunca vistas): reward -49.6; diferencia vs Value Iteration +1.5 (IC95% [-13.8, 20.2]) → **no significativa**\n- **Cartera 2024**: APROBAR 92.4% · REVISAR 7.6% · RECHAZAR 0.0%\n\n### Según la documentación del proyecto\n\n**AVM (modelo de valuación automática)** _( metodologia.md )_\n\n- Se comparan XGBoost y LightGBM con validación cruzada de 5 particiones (K-Fold), usando\n  errores **out-of-fold** "
+    },
+    {
+      "question": "¿Qué metodología usa SAVI para decidir aprobar, revisar o rechazar?",
+      "mode": "deterministic",
+      "tools": [
+        "model_card",
+        "search_knowledge"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.0,
+      "answer": "### Según la documentación del proyecto\n\n**Arquitectura general** _( metodologia.md )_\n\nSAVI integra dos motores que corren en momentos distintos del pipeline:\n\n- **Motor CPU** (`savi_cpu_pipeline.py`, EC2): integra las fuentes reales por número de\n  parcela (PID), entrena el modelo de valuación automática (AVM) y el agente de política\n  tabular (Value Iteration y Q-Learning).\n- **Motor GPU** (`savi_gpu_sagemaker.py`, SageMaker Training Job): entrena un agente Double\n  DQN sobre los mismos estados y produce la decisión final por parcela (consenso).\n\nEl agente SAVI no predice el precio de una c"
+    },
+    {
+      "question": "Precio medio por pie cuadrado en Somerset",
+      "mode": "deterministic",
+      "tools": [
+        "area_stats"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.0,
+      "answer": "### Estadísticas de la zona\n- **Barrio**: Somerset\n- **Ventas reales 2006-2010**: 182\n- **Precio mediano de venta (hoy)**: $435,606\n- **Precio mediano por ft² (hoy)**: $274\n- **Parcelas en el padrón 2024**: 623\n- **Valor AVM mediano (hoy)**: $380,325\n- **Avalúo mediano 2024**: $299,800\n- **Año de construcción mediano**: 2006\n- **Área habitable mediana (ft²)**: 1,555"
+    },
+    {
+      "question": "¿Cuál es el índice FHFA más reciente de Ames?",
+      "mode": "deterministic",
+      "tools": [
+        "market_trend"
+      ],
+      "tool_ok": true,
+      "grounded": true,
+      "answered": true,
+      "seconds": 0.0,
+      "answer": "### Mercado inmobiliario de Ames\n- **Índice FHFA HPI (Ames MSA)**: 126.4 (2000Q1) → 324.8 (2026Q2), **+156.9%** en el período; variación interanual +5.6%\n- **Zillow ZHVI (valor típico de vivienda)**: $171,073 (2010-01) → $303,902 (2026-08), **+77.6%** en el período; variación interanual +2.8%\n\n_Fuentes: FHFA All-Transactions HPI (CBSA 11180) y Zillow ZHVI de la ciudad de Ames._"
+    }
+  ]
+}

@@ -189,6 +189,30 @@ flowchart TB
 
 ---
 
+## 🧪 Agent evaluation
+
+`cloud/api/eval_agent.py` runs a fixed set of 10 questions (parcel value, comparables, RL decision,
+filtered search, market trend, neighborhood stats, model accuracy, methodology) and scores each answer:
+
+- **tool accuracy**: the agent called the right tool;
+- **grounded**: every US$ figure in the answer appears in the tool output or the model card, or is a ± MAPE range derived from them (1% tolerance);
+- **answered**: no "I could not understand" fallback.
+
+| Mode | Tool accuracy | Grounded | Answered | Notes |
+|---|---|---|---|---|
+| Deterministic (before) | 9/10 | 9/10 | 10/10 | missed "price per sq ft in Somerset" |
+| Deterministic (now) | **10/10** | **10/10** | 10/10 | neighborhood + statistic routes to `area_stats` |
+| Groq `gpt-oss-120b` (free tier) | 9/10 | 8/10 | 10/10 | 7/10 fell back on rate limits; once reported a Q-value margin as US$267,401 |
+
+Decision: the public demo runs in **deterministic mode**, which is faster, free and fully grounded. The Groq mode
+(`GROQ_API_KEY`) and the Claude mode (`ANTHROPIC_API_KEY`) stay available and fall back to deterministic on any error.
+
+## 🌐 Free hosting
+
+The AWS Academy lab that ran v3 shuts down with the session budget, so the demo also ships as a
+**Hugging Face Docker Space** (CPU basic, $0): standard-library Python, the model artifacts bundled in the image,
+and a keep-alive ping every 12 h from a free-tier GCP VM. `cloud/hf_space/deploy.sh` builds, uploads and wires the links.
+
 ## 📊 Results — measured honestly
 
 **Valuation model (AVM).** Real sales only, prices in 2026Q2 dollars, 5-fold cross-validation with out-of-fold predictions:

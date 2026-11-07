@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import importlib
 import json
+import os
 import logging
 import re
 import time
@@ -181,7 +182,7 @@ def _route_health(event: dict, params: dict) -> dict:
     has_key = bool(agent_mod._resolve_api_key())  # noqa: SLF001 - uso interno intencional
     payload = {
         "status": "ok" if "error" not in result else "degraded",
-        "llm_mode": "claude" if has_key else "deterministic",
+        "llm_mode": "claude" if has_key else ("groq" if os.environ.get("GROQ_API_KEY") else "deterministic"),
     }
     for key in ("run_id", "hpi_latest", "counts"):
         if key in result:

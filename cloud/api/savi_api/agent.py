@@ -5,10 +5,12 @@ SAVI Agent API — agente (modo Claude + modo determinista).
 Ver RAG_CONTRACT.md -> "agent.py". Expone `answer(message, history) -> dict`
 con forma `{answer, mode, tool_calls[], evidence{}, model?, usage?}`.
 
-Dos modos:
+Tres modos, en este orden de preferencia:
 - **claude**: loop agéntico manual con el SDK oficial `anthropic` (sin numpy/pandas,
   la única dependencia externa permitida). Requiere una clave (env `ANTHROPIC_API_KEY`
   o SSM SecureString `SAVI_SSM_KEY_PARAM`, cacheada en memoria tras la primera lectura).
+- **groq**: mismo bucle de tool use sobre la API gratuita de Groq (`GROQ_API_KEY`,
+  ver `savi_api.groq_mode`); se usa si no hay clave de Anthropic.
 - **deterministic**: planner basado en reglas (regex + palabras clave en español) que
   llama 1-3 herramientas (`savi_api.tools.run_tool`) y arma la respuesta con plantillas,
   usando SOLO los números devueltos por las herramientas. Se usa cuando no hay clave o
@@ -715,6 +717,11 @@ def _run_deterministic_mode(
         search_filters
     )
     wants_area = any(w in lower for w in ("barrio", "zona", "neighborhood")) and not pid and not wants_search
+    # "precio medio por pie cuadrado en Somerset": barrio conocido + pregunta estadística, sin decir "barrio"
+    if not wants_area and not pid and not wants_search and any(
+        w in lower for w in ("promedio", "medio", "mediana", "media", "por pie", "sqft", "estadística", "estadistica")
+    ):
+        wants_area = _extract_neighborhood(text) is not None
 
     wants_model_quality = any(w in lower for w in ("qué tan bueno", "que tan bueno", "precisión", "precision",
                                                    "métrica", "metrica", "exactitud", "confiable", "mape", "r2",
@@ -802,6 +809,21 @@ def answer(
         except _CLAUDE_FALLBACK_EXCEPTIONS as exc:  # type: ignore[misc]
             reason = f"{type(exc).__name__}: {exc}"
             logger.warning("Modo Claude falló, usando modo determinista: %s", reason)
+            return _run_deterministic_mode(tools_mod, message, history, fallback_reason=reason)
+
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        from savi_api import groq_mode  # import perezoso: solo hace falta con clave de Groq
+
+        try:
+            return groq_mode.run(
+                groq_mode.make_post(groq_key), tools_mod, message, history,
+                system_prompt=SYSTEM_PROMPT, model=groq_mode.groq_model(), max_turns=_max_turns(),
+                run_tool=_run_tool, summarize=_summarize_tool_result, collect_evidence=_collect_evidence,
+            )
+        except Exception as exc:  # noqa: BLE001 - cualquier fallo de Groq -> modo determinista
+            reason = f"{type(exc).__name__}: {exc}"
+            logger.warning("Modo Groq falló, usando modo determinista: %s", reason)
             return _run_deterministic_mode(tools_mod, message, history, fallback_reason=reason)
 
     return _run_deterministic_mode(tools_mod, message, history)
