@@ -224,7 +224,7 @@
     <!-- ============ CHAT ============ -->
     <section id="view-chat" aria-labelledby="h-chat">
       <h1 id="h-chat">Chat con el agente SAVI</h1>
-      <p class="lede">Preguntá en español sobre una parcela, comparables de venta, el mercado de Ames o cómo razona el agente. Cada respuesta cita evidencia real recuperada de los datos del condado.</p>
+      <p class="lede">Pregunta en español sobre una parcela, comparables de venta, el mercado de Ames o cómo razona el agente. Cada respuesta cita evidencia real recuperada de los datos del condado.</p>
 
       <div class="chips-row" id="chat-chips"></div>
 
@@ -233,7 +233,7 @@
 
       <form class="chat-form" id="chat-form">
         <label for="chat-input" class="field" style="position:absolute;left:-9999px;">Mensaje</label>
-        <textarea id="chat-input" rows="1" placeholder="Escribí tu pregunta, p. ej. ¿cuánto vale la parcela 0526301100?" required></textarea>
+        <textarea id="chat-input" rows="1" placeholder="Escribe tu pregunta, p. ej. ¿cuánto vale la parcela 0526301100?" required></textarea>
         <button class="btn" type="submit" id="chat-send">Enviar</button>
       </form>
     </section>
@@ -241,7 +241,7 @@
     <!-- ============ PARCEL ============ -->
     <section id="view-parcel" hidden aria-labelledby="h-parcel">
       <h1 id="h-parcel">Explorar parcela</h1>
-      <p class="lede">Buscá un PID (identificador de parcela del condado de Story, p. ej. <code>0526301100</code>) para ver su valuación AVM, la decisión del agente y comparables de venta.</p>
+      <p class="lede">Busca un PID (identificador de parcela del condado de Story, p. ej. <code>0526301100</code>) para ver su valuación AVM, la decisión del agente y comparables de venta.</p>
 
       <form class="row" id="parcel-form">
         <div class="field" style="flex:1; min-width:220px;">
@@ -667,7 +667,7 @@ $$("nav.rail button").forEach(b => b.addEventListener("click", () => showView(b.
 async function loadHealth(){
   try{
     const h = await api("/api/health");
-    $("#tk-run").textContent = "run " + pick(h,["run_id"],"—");
+    const rid = pick(h,["run_id"],"—"); $("#tk-run").textContent = rid === "local" ? "datos v3 (congelados)" : "run " + rid;
     $("#tk-hpi").textContent = "HPI " + pick(h,["hpi_latest"],"—");
     const counts = pick(h, ["counts"], {});
     const parts = [];

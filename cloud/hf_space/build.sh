@@ -17,7 +17,8 @@ cp -r "$CLOUD/api/savi_api" "$CLOUD/api/static" "$STAGE/"
 find "$STAGE" -name __pycache__ -prune -exec rm -rf {} +
 cp -r "$RAG" "$STAGE/data/rag" && cp -r "$SERVING" "$STAGE/data/serving"
 rm -rf "$DIST" && mkdir -p "$DIST"
-(cd "$STAGE" && python3 -c "import shutil; shutil.make_archive('app', 'zip', '.')" && mv app.zip "$DIST/")
+# el zip se escribe FUERA de la carpeta comprimida (si no, se mete a sí mismo a medio escribir)
+python3 -c "import shutil, sys; shutil.make_archive(sys.argv[1], 'zip', sys.argv[2])" "$DIST/app" "$STAGE"
 python3 - "$CLOUD/api/static/index.html" "$HERE/pyodide_shim.html" "$DIST/index.html" <<'PY'
 import sys, pathlib
 page, shim, out = (pathlib.Path(a) for a in sys.argv[1:])

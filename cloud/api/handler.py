@@ -6,10 +6,9 @@ Ver RAG_CONTRACT.md -> "API HTTP (handler.py, Function URL payload 2.0)".
 Enrutamiento manual sin framework (sin dependencias extra permitidas salvo
 `anthropic`, que ya usa `savi_api.agent`). CORS abierto en toda respuesta.
 
-No se toca `savi_api.{store,inference,retrieval,tools}` (otro agente los escribe
-en paralelo): se accede siempre vía `importlib.import_module`, nunca con un
-import directo a nivel de módulo, para no romper la carga de este archivo si
-esos módulos todavía no existen en disco.
+Los módulos `savi_api.{store,inference,retrieval,tools}` se cargan vía
+`importlib.import_module` y no con un import a nivel de módulo, para que un fallo
+al cargar los datos no impida arrancar el handler (y para inyectarlos en tests).
 """
 from __future__ import annotations
 
@@ -74,8 +73,7 @@ def _run_tool(name: str, tool_input: dict) -> dict:
 
 
 # Precalentar el store al importar el módulo (arranque en frío de la Lambda).
-# Si `store.py` todavía no existe (escrito por otro agente en paralelo) o falla
-# por cualquier motivo, no debe tumbar el arranque de la Lambda.
+# Si falla por cualquier motivo, no debe tumbar el arranque de la Lambda.
 try:
     _store_module = importlib.import_module("savi_api.store")
     _store_module.get_store()

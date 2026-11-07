@@ -116,7 +116,7 @@
       "grounded": true,
       "answered": true,
       "seconds": 0.0,
-      "answer": "### Estadísticas de la zona\n- **Barrio**: Somerset\n- **Ventas reales 2006-2010**: 182\n- **Precio mediano de venta (hoy)**: $435,606\n- **Precio mediano por ft² (hoy)**: $274\n- **Parcelas en el padrón 2024**: 623\n- **Valor AVM mediano (hoy)**: $380,325\n- **Avalúo mediano 2024**: $299,800\n- **Año de construcción mediano**: 2006\n- **Área habitable mediana (ft²)**: 1,555"
+      "answer": "### Estadísticas de la zona\n- **Barrio**: Somerset\n- **Ventas reales 2006-2010**: 182\n- **Precio mediano de venta (hoy)**: $435,606\n- **Precio mediano por ft² (hoy)**: $274\n- **Parcelas en el padrón 2024**: 623\n- **Valor AVM mediano (hoy)**: $380,325\n- **Avalúo mediano 2024**: $299,800\n- **Año de construcción mediano**: 2006\n- **Área habitable mediana (ft²)**: 1,555\n\n_SAVI reporta medianas, no promedios: son más robustas a casas atípicas._"
     },
     {
       "question": "¿Cuál es el índice FHFA más reciente de Ames?",

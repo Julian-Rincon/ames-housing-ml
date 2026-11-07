@@ -396,3 +396,27 @@ def test_deterministic_precio_por_pie_en_barrio_va_a_area_stats(install_fake_too
     result = agent.answer("Precio medio por pie cuadrado en Somerset")
     assert calls and calls[0] == ("area_stats", {"neighborhood": "Somerset"})
     assert result["mode"] == "deterministic"
+
+
+def test_deterministic_pregunta_fuera_de_tema_lo_dice_sin_herramientas(install_fake_tools):
+    """Una pregunta sin relación con Ames ni con SAVI no se responde con fragmentos sueltos."""
+    calls = []
+    install_fake_tools(lambda name, tool_input: calls.append(name) or {})
+    result = agent.answer("¿Quién ganó el mundial de fútbol 2022?")
+    assert calls == []
+    assert "fuera de lo que SAVI" in result["answer"]
+
+
+def test_deterministic_pid_incompleto_pide_10_digitos(install_fake_tools):
+    calls = []
+    install_fake_tools(lambda name, tool_input: calls.append(name) or {})
+    result = agent.answer("¿Cuánto vale la parcela 123?")
+    assert calls == []
+    assert "10 dígitos" in result["answer"]
+
+
+def test_deterministic_promedio_aclara_que_es_mediana(install_fake_tools, monkeypatch):
+    install_fake_tools(lambda name, tool_input: {"neighborhood": "Somerset", "n_sales": 5, "median_ppsf_today": 274.0})
+    monkeypatch.setattr(agent, "_extract_neighborhood", lambda text: "Somerset")
+    result = agent.answer("Precio promedio por pie cuadrado en Somerset")
+    assert "mediana" in result["answer"].lower()

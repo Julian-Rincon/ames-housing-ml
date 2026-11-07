@@ -24,6 +24,8 @@
   <img src="docs/images/demo_chat.png" alt="SAVI agent: chat with grounded answers, comparable sales and map" width="92%">
 </a>
 
+<sub>The public demo runs the <b>deterministic planner</b> (no LLM key, $0): every figure comes from a tool call. The Claude and Groq tool-use modes are opt-in with an API key; see <a href="#-agent-evaluation">Agent evaluation</a>.</sub>
+
 </div>
 
 ---

@@ -16,8 +16,7 @@ Tres modos, en este orden de preferencia:
   usando SOLO los números devueltos por las herramientas. Se usa cuando no hay clave o
   cuando el modo Claude falla (rate limit, error de API, conexión, rechazo del modelo).
 
-No se toca `savi_api.{store,inference,retrieval,tools}` (los escribe otro agente en
-paralelo) — se accede siempre vía `importlib.import_module("savi_api.tools")`, nunca con
+Los módulos `savi_api.{store,inference,retrieval,tools}` se acceden siempre vía `importlib.import_module("savi_api.tools")`, nunca con
 un import directo a nivel de módulo, para no romper la importación de este archivo si
 `tools.py` todavía no existe en disco, y para que los tests puedan inyectar un módulo
 falso sin tocar el sistema de archivos.
@@ -128,7 +127,10 @@ def _resolve_api_key() -> Optional[str]:
     _api_key_resolved = True
     try:
         import boto3  # import perezoso: no hace falta en tests que inyectan la clave
-
+    except ImportError:  # fuera de AWS (Space estático, local): no hay SSM, modo determinista
+        _cached_api_key = None
+        return None
+    try:
         ssm = boto3.client("ssm")
         param = ssm.get_parameter(Name=_ssm_param_name(), WithDecryption=True)
         _cached_api_key = param["Parameter"]["Value"]
@@ -379,6 +381,17 @@ def _run_claude_mode(client, tools_mod, message: str, history: Optional[list[dic
 # --------------------------------------------------------------------------- #
 
 _PID_RE = re.compile(r"\b[\d-]{10,14}\b")
+_SHORT_PID_RE = re.compile(r"\b(?:parcela|pid|predio)\s*(?:n[°º.]?\s*)?\d{1,9}\b")
+# Palabras que indican que la pregunta es del dominio de SAVI (si no hay ninguna ni un barrio,
+# se responde que está fuera de alcance en vez de devolver fragmentos sin relación).
+_DOMAIN_WORDS = (
+    "parcela", "pid", "predio", "casa", "vivienda", "propiedad", "inmueble", "precio", "valor", "vale",
+    "cuesta", "avalú", "avm", "venta", "vend", "compr", "ames", "iowa", "barrio", "zona", "mercado",
+    "hpi", "fhfa", "zillow", "índice", "indice", "habitaci", "cuarto", "baño", "pie", "ft", "metro",
+    "comparable", "modelo", "agente", "savi", "decisi", "aprob", "rechaz", "revis", "riesgo",
+    "recompensa", "política", "politica", "metodolog", " rl", "xgboost", "datos", "fuente", "mape",
+    "r2", "r²", "error", "precisi", "valua", "valoración", "hipotec", "banco", "crédito", "credito",
+)
 _BEDS_RE = re.compile(r"(\d+)\s*(?:habitaciones?|cuartos?|dormitorios?|recamaras?)")
 # Lookahead negativo: evita que "menos de 3 habitaciones"/"más de 2 baños" se
 # confunda con un filtro de precio (sólo habitaciones/cuartos/baños/área tienen
@@ -758,12 +771,26 @@ def _run_deterministic_mode(
         answer_parts.append(_render_area(call("area_stats", area_input)))
     elif pid:
         answer_parts.append(_render_get_parcel(call("get_parcel", {"pid": pid}), pid))
+    elif _SHORT_PID_RE.search(lower):
+        answer_parts.append(
+            "Los PID del condado de Story tienen 10 dígitos (p. ej. `0526301100`). "
+            "Revisa el número o busca la casa por barrio, habitaciones y precio."
+        )
+    elif not any(w in lower for w in _DOMAIN_WORDS) and _extract_neighborhood(text) is None:
+        answer_parts.append(
+            "Esa pregunta está fuera de lo que SAVI cubre. Puedo valuar parcelas de Ames (Iowa), "
+            "buscar casas, dar comparables, estadísticas por barrio, el mercado (FHFA, Zillow) "
+            "y explicar cómo decide el agente."
+        )
     else:
         answer_parts.append(_render_knowledge(call("search_knowledge", {"query": text})))
 
+    if wants_area and any(w in lower for w in ("promedio", "media ", "medio")) and answer_parts:
+        answer_parts.append("_SAVI reporta medianas, no promedios: son más robustas a casas atípicas._")
+
     if not answer_parts:
         answer_parts.append(
-            "No pude identificar qué necesitás. Probá con un PID de 10 dígitos, el nombre de un "
+            "No pude identificar qué necesitas. Prueba con un PID de 10 dígitos, el nombre de un "
             "barrio, o palabras como 'comparables', 'mercado' o 'metodología'."
         )
 
