@@ -1,0 +1,54 @@
+<!-- savi-pyodide-shim: la API corre en el navegador (Pyodide). Se inyecta en <head> al construir. -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js"></script>
+<script>
+(function () {
+  const PY_BOOT = `
+import json, os, sys
+from urllib.parse import parse_qsl
+os.environ["SAVI_DATA_DIR"] = "/app/data"
+sys.path.insert(0, "/app")
+import handler
+
+def savi_call(method, path, query, body):
+    event = {
+        "version": "2.0",
+        "rawPath": path,
+        "rawQueryString": query,
+        "headers": {"accept": "application/json", "content-type": "application/json"},
+        "queryStringParameters": dict(parse_qsl(query, keep_blank_values=True)) if query else None,
+        "requestContext": {"http": {"method": method, "path": path}},
+        "body": body or None,
+        "isBase64Encoded": False,
+    }
+    r = handler.handler(event)
+    return json.dumps({"status": r.get("statusCode", 200), "body": r.get("body") or "",
+                       "type": (r.get("headers") or {}).get("Content-Type", "application/json")})
+`;
+  let ready = null;
+  function boot() {
+    if (!ready) {
+      ready = (async () => {
+        const py = await loadPyodide();
+        const zip = await (await fetch("app.zip")).arrayBuffer();
+        py.unpackArchive(zip, "zip", { extractDir: "/app" });
+        py.runPython(PY_BOOT);
+        return py.globals.get("savi_call");
+      })();
+      ready.catch(() => { ready = null; });
+    }
+    return ready;
+  }
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async function (input, init) {
+    const url = new URL(typeof input === "string" ? input : input.url, location.href);
+    if (url.origin === location.origin && url.pathname.startsWith("/api/")) {
+      const call = await boot();
+      const r = JSON.parse(call((init && init.method) || "GET", url.pathname, url.search.slice(1),
+                                (init && typeof init.body === "string") ? init.body : ""));
+      return new Response(r.body, { status: r.status, headers: { "Content-Type": r.type } });
+    }
+    return nativeFetch(input, init);
+  };
+  boot();
+})();
+</script>

@@ -151,7 +151,7 @@ sequenceDiagram
 
 ## 🤖 The RAG agent
 
-**Live:** <https://julianrincon-savi-agent.static.hf.space/> — one Lambda Function URL serves the web app (`/`) and the JSON API (`/api/*`).
+**Live:** <https://julianrincon-savi-agent.static.hf.space/> — the same web app and JSON API (`/api/*`) that a Lambda Function URL serves on AWS, here running in the browser (see Free hosting).
 
 ```mermaid
 flowchart TB
@@ -210,8 +210,10 @@ Decision: the public demo runs in **deterministic mode**, which is faster, free 
 ## 🌐 Free hosting
 
 The AWS Academy lab that ran v3 shuts down with the session budget, so the demo also ships as a
-**Hugging Face Docker Space** (CPU basic, $0): standard-library Python, the model artifacts bundled in the image,
-and a keep-alive ping every 12 h from a free-tier GCP VM. `cloud/hf_space/deploy.sh` builds, uploads and wires the links.
+**static Hugging Face Space** ($0, never sleeps): the API is standard-library Python, so the unchanged Lambda
+handler runs in the browser on [Pyodide](https://pyodide.org) and the page's `/api/*` calls are routed to it
+(`cloud/hf_space/pyodide_shim.html`). The model artifacts travel in a 1.8 MB `app.zip`; the first load takes ~10 s.
+`cloud/hf_space/deploy.sh` builds, uploads and wires the links.
 
 ## 📊 Results — measured honestly
 
