@@ -259,7 +259,7 @@
               <h2><span class="mono" id="p-pid"></span> <span id="p-neighborhood" class="status" style="display:inline;"></span></h2>
               <div class="kv" style="margin-top:.4rem;">
                 <dt>AVM hoy</dt><dd id="p-avm">—</dd>
-                <dt>Avalúo 2024</dt><dd id="p-assessed">—</dd>
+                <dt>Avalúo 2024 llevado a hoy</dt><dd id="p-assessed">—</dd>
                 <dt>Brecha (AVM vs. avalúo)</dt><dd id="p-gap">—</dd>
                 <dt>$/ft² (hoy)</dt><dd id="p-ppsf">—</dd>
               </div>
@@ -873,7 +873,7 @@ function renderParcel(data){
   $("#p-neighborhood").textContent = nb ? ("· " + nb) : "";
 
   const avm = pick(p, ["avm_value_today"]);
-  const assessed = pick(p, ["assessed_2024"]);
+  const assessed = pick(p, ["assessed_today", "assessed_2024"]);
   const gap = pick(p, ["gap_vs_assessed"]);
   $("#p-avm").textContent = fmtUSD(avm);
   $("#p-assessed").textContent = fmtUSD(assessed);
