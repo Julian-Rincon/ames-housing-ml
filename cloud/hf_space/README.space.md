@@ -3,8 +3,7 @@ title: SAVI Valuation Agent
 emoji: 🏠
 colorFrom: blue
 colorTo: indigo
-sdk: docker
-app_port: 7860
+sdk: static
 pinned: false
 license: mit
 short_description: Real-estate valuation agent for Ames, Iowa (XGBoost + RL)

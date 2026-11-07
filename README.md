@@ -5,7 +5,7 @@
 **From a university ML notebook to a cloud-native, event-driven RL + RAG agent on AWS**
 *Ames, Iowa · 18,078 parcels · 2,930 real sales · XGBoost · Value Iteration · Q-Learning · Double DQN · Claude*
 
-[![Live demo](https://img.shields.io/badge/▶_LIVE_DEMO-try_the_agent-c9a84c?style=for-the-badge)](https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/)
+[![Live demo](https://img.shields.io/badge/▶_LIVE_DEMO-try_the_agent-c9a84c?style=for-the-badge)](https://julianrincon-savi-agent.static.hf.space/)
 [![CI](https://img.shields.io/github/actions/workflow/status/Julian-Rincon/ames-housing-ml/cloud-ci.yml?style=for-the-badge&label=CI)](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml)
 [![Tests](https://img.shields.io/badge/tests-191_passing-2ea44f?style=for-the-badge)](cloud/tests)
 
@@ -20,7 +20,7 @@
 ![Claude](https://img.shields.io/badge/LLM-Claude_tool_use-D97757?logo=anthropic&logoColor=white)
 ![boto3](https://img.shields.io/badge/IaC-boto3-232F3E?logo=amazonaws&logoColor=white)
 
-<a href="https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/">
+<a href="https://julianrincon-savi-agent.static.hf.space/">
   <img src="docs/images/demo_chat.png" alt="SAVI agent: chat with grounded answers, comparable sales and map" width="92%">
 </a>
 
@@ -151,7 +151,7 @@ sequenceDiagram
 
 ## 🤖 The RAG agent
 
-**Live:** <https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/> — one Lambda Function URL serves the web app (`/`) and the JSON API (`/api/*`).
+**Live:** <https://julianrincon-savi-agent.static.hf.space/> — one Lambda Function URL serves the web app (`/`) and the JSON API (`/api/*`).
 
 ```mermaid
 flowchart TB
@@ -272,7 +272,7 @@ and a keep-alive ping every 12 h from a free-tier GCP VM. `cloud/hf_space/deploy
 
 ## 🚀 Run it
 
-**Try it:** open the [live demo](https://5w442qdw5roag3chtm6esbohfu0mwaap.lambda-url.us-east-1.on.aws/) and ask, for example, *"¿Cuánto vale la parcela 0526301100 y qué decide el agente?"* or *"Casas de 3 habitaciones en Northridge Heights por menos de 400 mil"*.
+**Try it:** open the [live demo](https://julianrincon-savi-agent.static.hf.space/) and ask, for example, *"¿Cuánto vale la parcela 0526301100 y qué decide el agente?"* or *"Casas de 3 habitaciones en Northridge Heights por menos de 400 mil"*.
 
 **Locally (v3):**
 
