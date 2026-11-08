@@ -9,6 +9,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/Julian-Rincon/ames-housing-ml/cloud-ci.yml?style=for-the-badge&label=CI)](https://github.com/Julian-Rincon/ames-housing-ml/actions/workflows/cloud-ci.yml)
 [![Tests](https://img.shields.io/badge/tests-197_passing-2ea44f?style=for-the-badge)](cloud/tests)
 
+<p align="center"><a href="https://julian-rincon.github.io/assets/videos/savi.mp4"><img src="https://julian-rincon.github.io/assets/videos/savi.jpg" width="720" alt="▶ Watch the video (~1 min, subtitled)"></a><br><sub>▶ Watch the video (~1 min, subtitled)</sub></p>
+
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-FF9900?logo=awslambda&logoColor=white)
 ![Amazon EC2](https://img.shields.io/badge/AWS-EC2-FF9900?logo=amazonec2&logoColor=white)
